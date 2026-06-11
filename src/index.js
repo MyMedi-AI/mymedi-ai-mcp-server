@@ -6,16 +6,59 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 import { MCP_TOOLS, getToolByName } from './tools.js';
 
+const SERVER_VERSION = '1.4.0';
 const API_BASE_URL = process.env.MCP_API_BASE_URL || 'https://mymedi-ai.com';
 const API_KEY = process.env.MCP_API_KEY || '';
+// Shared-egress deployments (e.g. the hosted claude.ai connector) set
+// MCP_CONNECTOR_TOKEN so the API can give them an elevated rate-limit bucket
+// instead of the per-IP one. Not needed for individual installs.
+const CONNECTOR_TOKEN = process.env.MCP_CONNECTOR_TOKEN || '';
+
+function baseHeaders(extra = {}) {
+  return {
+    ...(API_KEY && { 'X-API-Key': API_KEY }),
+    ...(CONNECTOR_TOKEN && { 'X-Connector-Token': CONNECTOR_TOKEN }),
+    'X-Agent-ID': 'mcp-client',
+    'User-Agent': `@mymedi-ai/mcp-server/${SERVER_VERSION}`,
+    ...extra,
+  };
+}
+
+const RESOURCE_DEFS = [
+  {
+    name: 'pa-required-list',
+    uri: 'mymedi://datasets/pa-required-list',
+    title: 'Medicare DMEPOS Required Prior Authorization List',
+    description: 'Full CMS Required Prior Authorization List (42 CFR 414.234): HCPCS codes with category and nationwide-since date. Original Medicare FFS scope.',
+    mimeType: 'application/json',
+    fetchPath: '/agent/v1/codes/pa-required-list',
+  },
+  {
+    name: 'f2f-wopd-list',
+    uri: 'mymedi://datasets/f2f-wopd-list',
+    title: 'Medicare F2F + WOPD requirements list',
+    description: 'Full CMS face-to-face encounter and written-order-prior-to-delivery list (42 CFR 410.38(d)) plus the universal standard written order elements.',
+    mimeType: 'application/json',
+    fetchPath: '/agent/v1/codes/f2f-wopd-list',
+  },
+  {
+    name: 'llms-txt',
+    uri: 'https://mymedi-ai.com/llms.txt',
+    title: 'MyMedi-AI platform overview (llms.txt)',
+    description: 'What MyMedi-AI is, the tool catalog, pricing, and integration paths — written for AI agents.',
+    mimeType: 'text/plain',
+    fetchPath: '/llms.txt',
+  },
+];
 
 // Shared server instance for stdio mode
 const server = createMcpServer();
 
 function createMcpServer() {
-  const s = new McpServer({ name: 'mymedi-ai', version: '1.3.0' });
+  const s = new McpServer({ name: 'mymedi-ai', version: SERVER_VERSION });
   for (const tool of MCP_TOOLS) {
     s.registerTool(tool.name, {
       title: tool.title,
@@ -40,21 +83,12 @@ function createMcpServer() {
           const queryString = query.toString();
           response = await fetch(`${API_BASE_URL}${toolDef.endpoint}${pathSuffix}${queryString ? `?${queryString}` : ''}`, {
             method: 'GET',
-            headers: {
-              ...(API_KEY && { 'X-API-Key': API_KEY }),
-              'X-Agent-ID': 'mcp-client',
-              'User-Agent': '@mymedi-ai/mcp-server/1.3.0',
-            },
+            headers: baseHeaders(),
           });
         } else {
           response = await fetch(`${API_BASE_URL}${toolDef.endpoint}`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(API_KEY && { 'X-API-Key': API_KEY }),
-              'X-Agent-ID': 'mcp-client',
-              'User-Agent': '@mymedi-ai/mcp-server/1.3.0',
-            },
+            headers: baseHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(params),
           });
         }
@@ -84,12 +118,64 @@ function createMcpServer() {
       }
     });
   }
+  registerPrompts(s);
+  registerResources(s);
   return s;
+}
+
+function registerPrompts(s) {
+  s.registerPrompt('decode-denial', {
+    title: 'Decode a DME claim denial',
+    description: 'Explain a CARC denial code and build an action plan to fix, resubmit, or appeal the claim.',
+    argsSchema: { code: z.string().describe('CARC denial code (e.g., "CO-50")') },
+  }, ({ code }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: `A DME claim came back with denial code ${code}. Use the denial_code_info tool to decode it, then give me: (1) what this denial means in plain language, (2) the most likely root causes for a DME supplier, (3) concrete fix-and-resubmit steps in priority order, and (4) whether an appeal is worthwhile. Do not include any patient identifiers in tool calls.`,
+      },
+    }],
+  }));
+
+  s.registerPrompt('order-readiness', {
+    title: 'DMEPOS order-readiness review',
+    description: 'Assemble the blank pre-delivery paperwork checklist for a HCPCS code: SWO elements, F2F/WOPD, and prior authorization.',
+    argsSchema: { code: z.string().describe('HCPCS Level II code (e.g., "E0466")') },
+  }, ({ code }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: `I am preparing a Medicare DMEPOS order for HCPCS code ${code}. Use the order_readiness_checklist tool to pull every documentation requirement, then present a blank pre-delivery checklist: the standard written order elements, any face-to-face encounter / WOPD requirement with its timing rule, and whether prior authorization must be affirmed before delivery. Flag the items suppliers most often miss. Keep it PHI-free — requirement definitions only, no patient data.`,
+      },
+    }],
+  }));
+}
+
+function registerResources(s) {
+  for (const def of RESOURCE_DEFS) {
+    s.registerResource(def.name, def.uri, {
+      title: def.title,
+      description: def.description,
+      mimeType: def.mimeType,
+    }, async (uri) => {
+      const response = await fetch(`${API_BASE_URL}${def.fetchPath}`, {
+        method: 'GET',
+        headers: baseHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${def.fetchPath}: HTTP ${response.status}`);
+      }
+      const text = await response.text();
+      return { contents: [{ uri: uri.href, mimeType: def.mimeType, text }] };
+    });
+  }
 }
 
 // Smithery sandbox support — allows scanning tools without real credentials
 export function createSandboxServer() {
-  const sandboxServer = new McpServer({ name: 'mymedi-ai', version: '1.3.0' });
+  const sandboxServer = new McpServer({ name: 'mymedi-ai', version: SERVER_VERSION });
   for (const tool of MCP_TOOLS) {
     sandboxServer.registerTool(tool.name, {
       title: tool.title,

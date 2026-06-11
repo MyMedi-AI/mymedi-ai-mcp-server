@@ -1,6 +1,12 @@
 # @mymedi-ai/mcp-server
 
-MCP server for healthcare AI. Connect Claude Desktop, Cursor, VS Code, or any MCP client to **24 HIPAA-compliant medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources. Four tools work with no API key at all.
+[![npm version](https://img.shields.io/npm/v/%40mymedi-ai%2Fmcp-server)](https://www.npmjs.com/package/@mymedi-ai/mcp-server)
+[![license: MIT](https://img.shields.io/badge/license-MIT-teal)](./LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-teal)](https://mymedi-ai.com/mcp-stream)
+
+MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client to **25 medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources — plus denial-decoding prompts and CMS dataset resources. Five tools work with no API key at all, and everything is read-only and PHI-free by design.
+
+**Claude (web or desktop) users:** Settings → Connectors → **Add custom connector** → paste `https://mymedi-ai.com/mcp-stream` — no authentication, tools work immediately.
 
 ## Quick Start
 
@@ -25,18 +31,19 @@ Send USDC on Base to the treasury wallet and include the signed payment in `X-40
 curl "https://mymedi-ai.com/agent/v1/demo?code=99213"
 ```
 
-Returns basic code metadata (10/hour rate-limited). Paid tier unlocks RVU, Medicare reimbursement (PFS + OPPS), crosswalks, and AI features.
+Returns basic code metadata (60/hour rate-limited). Paid tier unlocks RVU, Medicare reimbursement (PFS + OPPS), crosswalks, and AI features.
 
 ## Works without an API key
 
-Four tools are free and need no API key — install the server with no `MCP_API_KEY` and they work immediately (rate-limited 10/hour/IP):
+Five tools are free and need no API key — install the server with no `MCP_API_KEY` and they work immediately (rate-limited 60/hour/IP):
 
 | Tool | Description |
 |------|-------------|
 | `pa_required_check` | Medicare DMEPOS prior-auth required check — CMS Required Prior Authorization List (42 CFR 414.234) |
 | `denial_code_info` | DME denial code (CARC) explainer — meaning, common causes, fixes, appealability |
 | `code_lookup_basic` | Basic medical code lookup — code, type, description, category, active status |
-| `reimbursement_basic` | Medicare national PFS payment rate — CMS RVU × conversion factor |
+| `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges (rental/purchase) |
+| `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior auth (42 CFR 410.38) |
 
 The other 20 paid tools need an API key from `POST /bot-marketplace/register` (100 starter credits).
 
@@ -82,7 +89,7 @@ Add to MCP settings:
 claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 ```
 
-## Tools (24)
+## Tools (25)
 
 ### Free (no API key)
 | Tool | Description | Price |
@@ -90,7 +97,8 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 | `pa_required_check` | Medicare DMEPOS prior-auth required check (42 CFR 414.234) | free |
 | `denial_code_info` | DME denial code (CARC) explainer | free |
 | `code_lookup_basic` | Basic code metadata lookup | free |
-| `reimbursement_basic` | Medicare national PFS payment rate | free |
+| `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges | free |
+| `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist (SWO, F2F/WOPD, PA) | free |
 
 ### Medical Coding
 | Tool | Description | Price |
@@ -132,12 +140,28 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 | `trials_search` | Active clinical trials (ClinicalTrials.gov) | $0.03 |
 | `disease_surveillance` | CDC NNDSS case counts + trends | $0.02 |
 
+## Prompts
+
+| Prompt | Arguments | What it does |
+|--------|-----------|--------------|
+| `decode-denial` | `code` (CARC, e.g. `CO-50`) | Decodes the denial via `denial_code_info`, then builds a fix/resubmit/appeal action plan |
+| `order-readiness` | `code` (HCPCS, e.g. `E0466`) | Assembles the blank pre-delivery paperwork checklist via `order_readiness_checklist` |
+
+## Resources
+
+| Resource | URI | Contents |
+|----------|-----|----------|
+| PA Required List | `mymedi://datasets/pa-required-list` | Full CMS Required Prior Authorization List (42 CFR 414.234) with categories and effective dates |
+| F2F + WOPD List | `mymedi://datasets/f2f-wopd-list` | Full CMS face-to-face/WOPD list (42 CFR 410.38(d)) plus the universal SWO elements |
+| Platform overview | `https://mymedi-ai.com/llms.txt` | What MyMedi-AI is, tool catalog, pricing, integration paths |
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MCP_API_KEY` | API key from registration (omit for free tools / anonymous USDC) | — |
 | `MCP_API_BASE_URL` | API base URL | `https://mymedi-ai.com` |
+| `MCP_CONNECTOR_TOKEN` | Shared-egress rate-limit token for hosted multi-user deployments (not needed for individual installs) | — |
 
 ## Payment
 
@@ -189,8 +213,8 @@ All 7 license-free government sources:
 
 ## Troubleshooting
 
-- **"Payment required" / 402 responses** — the tool you called is pay-per-call and no API key is configured. Register a free key (100 starter credits): `curl -X POST https://mymedi-ai.com/bot-marketplace/register -H "Content-Type: application/json" -d '{"name":"your-agent"}'`, then set `MCP_API_KEY`. The four free tools never need a key.
-- **429 / rate-limited on free tools** — free endpoints allow 10 requests/hour per IP. Wait, or register a key and use the paid equivalents.
+- **"Payment required" / 402 responses** — the tool you called is pay-per-call and no API key is configured. Register a free key (100 starter credits): `curl -X POST https://mymedi-ai.com/bot-marketplace/register -H "Content-Type: application/json" -d '{"name":"your-agent"}'`, then set `MCP_API_KEY`. The five free tools never need a key.
+- **429 / rate-limited on free tools** — free endpoints allow 60 requests/hour per IP. Wait, or register a key and use the paid equivalents.
 - **Connector won't connect** — the hosted endpoint is `https://mymedi-ai.com/mcp-stream` over Streamable HTTP. Verify it from a terminal: `npx -y @modelcontextprotocol/inspector --cli https://mymedi-ai.com/mcp-stream --transport http --method tools/list`.
 - **Code not found** — lookups expect bare code strings (`E1390`, `99213`, `M79.3`). Denial codes accept `CO-50`, `co50`, or `50`.
 - **Stale data concerns** — reference data follows CMS release cycles (HCPCS April 2026, PFS RVU Jan 2026, PA/F2F lists per Federal Register notices); each response carries its list version where applicable.

@@ -1,7 +1,7 @@
 {
   "name": "@mymedi-ai/mcp-server",
-  "version": "1.3.0",
-  "description": "MCP server for healthcare AI \u2014 medical coding, drug intelligence, reimbursement rates, clinical trials, physician payments, disease surveillance, prior auth, NER, claims validation, HIPAA compliance. 24 tools \u2014 4 free no-auth + 20 pay-per-call via credits or USDC.",
+  "version": "1.4.0",
+  "description": "MCP server for healthcare AI — medical coding, drug intelligence, reimbursement rates, clinical trials, physician payments, disease surveillance, prior auth, NER, claims validation, HIPAA compliance. 25 tools — 5 free no-auth + 20 pay-per-call via credits or USDC — plus denial-decoding prompts and CMS dataset resources.",
   "type": "module",
   "main": "./src/index.js",
   "module": "./src/index.js",
@@ -43,7 +43,7 @@
     "zod": "^3.23.8"
   },
   "scripts": {
-    "build": "echo 'No build step required \u2014 MCP server runs directly from src/index.js'"
+    "build": "echo 'No build step required — MCP server runs directly from src/index.js'"
   },
   "bugs": {
     "url": "https://github.com/MyMedi-AI/mymedi-ai-mcp-server/issues"

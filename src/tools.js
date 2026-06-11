@@ -1,6 +1,6 @@
 /**
  * MCP Tool Definitions for MyMedi-AI Healthcare Agent API
- * 24 tools: 4 free no-auth + 20 x402-protected REST endpoints mapped to MCP tool format.
+ * 25 tools: 5 free no-auth + 20 x402-protected REST endpoints mapped to MCP tool format.
  * Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
  */
 import { z } from 'zod';
@@ -14,7 +14,7 @@ const READ_ONLY_ANNOTATIONS = {
 };
 
 export const MCP_TOOLS = [
-  // --- Free, no API key (GET endpoints, rate-limited 10/hr/IP server-side) ---
+  // --- Free, no API key (GET endpoints, rate-limited 60/hr/IP server-side) ---
   {
     name: 'pa_required_check',
     title: 'Medicare DMEPOS prior-auth required check (free)',
@@ -58,14 +58,27 @@ export const MCP_TOOLS = [
   {
     name: 'reimbursement_basic',
     title: 'Medicare national payment rate (free)',
-    description: 'Look up the Medicare national payment rate for a code. Returns national PFS facility and non-facility payment computed from CMS RVU values and the conversion factor. Free, no API key required.',
+    description: 'Look up Medicare payment for a code. Returns the national PFS facility and non-facility payment (CMS RVU × conversion factor) for professional services, plus DMEPOS fee-schedule ranges (rental/purchase, min–max across state fees) for DME items like E/K/L codes. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
     endpoint: '/agent/v1/codes/reimbursement-basic',
     annotations: READ_ONLY_ANNOTATIONS,
     schema: {
-      code: z.string().describe('Medical code (e.g., "97110")'),
+      code: z.string().describe('Medical code (e.g., "97110" or "E1390")'),
+    },
+  },
+  {
+    name: 'order_readiness_checklist',
+    title: 'DMEPOS order-readiness checklist (free)',
+    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code requires a face-to-face encounter and written order prior to delivery (F2F/WOPD), and whether it is on the Medicare Required Prior Authorization List. Requirement definitions only — PHI-free, never send patient data. Free, no API key required.',
+    price: 'free',
+    auth: false,
+    method: 'GET',
+    endpoint: '/agent/v1/codes/order-readiness',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      code: z.string().describe('HCPCS Level II code (e.g., "E0466")'),
     },
   },
 
