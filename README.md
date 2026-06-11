@@ -187,6 +187,15 @@ All 7 license-free government sources:
 - **CMS Open Payments**: Sunshine Act physician payments
 - **CDC NNDSS**: notifiable disease surveillance
 
+## Troubleshooting
+
+- **"Payment required" / 402 responses** — the tool you called is pay-per-call and no API key is configured. Register a free key (100 starter credits): `curl -X POST https://mymedi-ai.com/bot-marketplace/register -H "Content-Type: application/json" -d '{"name":"your-agent"}'`, then set `MCP_API_KEY`. The four free tools never need a key.
+- **429 / rate-limited on free tools** — free endpoints allow 10 requests/hour per IP. Wait, or register a key and use the paid equivalents.
+- **Connector won't connect** — the hosted endpoint is `https://mymedi-ai.com/mcp-stream` over Streamable HTTP. Verify it from a terminal: `npx -y @modelcontextprotocol/inspector --cli https://mymedi-ai.com/mcp-stream --transport http --method tools/list`.
+- **Code not found** — lookups expect bare code strings (`E1390`, `99213`, `M79.3`). Denial codes accept `CO-50`, `co50`, or `50`.
+- **Stale data concerns** — reference data follows CMS release cycles (HCPCS April 2026, PFS RVU Jan 2026, PA/F2F lists per Federal Register notices); each response carries its list version where applicable.
+- **Still stuck?** Email support@mymedi-ai.com or open an issue at https://github.com/MyMedi-AI/mymedi-ai-mcp-server/issues.
+
 ## Links
 
 - [API Discovery](https://mymedi-ai.com/agent/v1/discovery)
