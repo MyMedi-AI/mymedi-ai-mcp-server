@@ -15,30 +15,55 @@ const API_KEY = process.env.MCP_API_KEY || '';
 const server = createMcpServer();
 
 function createMcpServer() {
-  const s = new McpServer({ name: 'mymedi-ai', version: '1.2.1' });
+  const s = new McpServer({ name: 'mymedi-ai', version: '1.3.0' });
   for (const tool of MCP_TOOLS) {
-    s.tool(tool.name, tool.description, tool.schema, async (params) => {
+    s.registerTool(tool.name, {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: tool.schema,
+      annotations: tool.annotations,
+    }, async (params) => {
       const toolDef = getToolByName(tool.name);
       if (!toolDef) {
         return { content: [{ type: 'text', text: `Unknown tool: ${tool.name}` }], isError: true };
       }
       try {
-        const response = await fetch(`${API_BASE_URL}${toolDef.endpoint}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(API_KEY && { 'X-API-Key': API_KEY }),
-            'X-Agent-ID': 'mcp-client',
-            'User-Agent': '@mymedi-ai/mcp-server/1.2.1',
-          },
-          body: JSON.stringify(params),
-        });
+        let response;
+        if (toolDef.method === 'GET') {
+          // Free no-auth tools — GET with path/query params, no body, no Content-Type
+          const pathSuffix = toolDef.pathParam ? `/${encodeURIComponent(params[toolDef.pathParam])}` : '';
+          const query = new URLSearchParams();
+          for (const [key, value] of Object.entries(params)) {
+            if (key === toolDef.pathParam || value === undefined) continue;
+            query.set(key, String(value));
+          }
+          const queryString = query.toString();
+          response = await fetch(`${API_BASE_URL}${toolDef.endpoint}${pathSuffix}${queryString ? `?${queryString}` : ''}`, {
+            method: 'GET',
+            headers: {
+              ...(API_KEY && { 'X-API-Key': API_KEY }),
+              'X-Agent-ID': 'mcp-client',
+              'User-Agent': '@mymedi-ai/mcp-server/1.3.0',
+            },
+          });
+        } else {
+          response = await fetch(`${API_BASE_URL}${toolDef.endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(API_KEY && { 'X-API-Key': API_KEY }),
+              'X-Agent-ID': 'mcp-client',
+              'User-Agent': '@mymedi-ai/mcp-server/1.3.0',
+            },
+            body: JSON.stringify(params),
+          });
+        }
         if (response.status === 402) {
           const paymentInfo = await response.json();
           return {
             content: [{ type: 'text', text: JSON.stringify({
               error: 'payment_required',
-              message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with 10 free starter credits, or pay per call with on-chain USDC (no signup) via the x402 protocol.`,
+              message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with 100 free starter credits, or pay per call with on-chain USDC (no signup) via the x402 protocol.`,
               price: toolDef.price, register: `${API_BASE_URL}/bot-marketplace/register`, ...paymentInfo,
             }, null, 2) }], isError: true,
           };
@@ -64,10 +89,14 @@ function createMcpServer() {
 
 // Smithery sandbox support — allows scanning tools without real credentials
 export function createSandboxServer() {
-  const sandboxServer = new McpServer({ name: 'mymedi-ai', version: '1.2.1' });
+  const sandboxServer = new McpServer({ name: 'mymedi-ai', version: '1.3.0' });
   for (const tool of MCP_TOOLS) {
-    sandboxServer.tool(tool.name, tool.description, tool.schema,
-      async () => ({ content: [{ type: 'text', text: 'sandbox' }] }));
+    sandboxServer.registerTool(tool.name, {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: tool.schema,
+      annotations: tool.annotations,
+    }, async () => ({ content: [{ type: 'text', text: 'sandbox' }] }));
   }
   return sandboxServer;
 }

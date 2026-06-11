@@ -1,18 +1,18 @@
 # @mymedi-ai/mcp-server
 
-MCP server for healthcare AI. Connect Claude Desktop, Cursor, VS Code, or any MCP client to **20 HIPAA-compliant medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources.
+MCP server for healthcare AI. Connect Claude Desktop, Cursor, VS Code, or any MCP client to **24 HIPAA-compliant medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources. Four tools work with no API key at all.
 
 ## Quick Start
 
 Two ways to pay — pick either:
 
-### Option A: Register for credits (10 free)
+### Option A: Register for credits (100 free)
 
 ```bash
 curl -X POST https://mymedi-ai.com/bot-marketplace/register \
   -H "Content-Type: application/json" \
   -d '{"name": "my-agent"}'
-# → { apiKey, credits: 10 }
+# → { apiKey, credits: 100 }
 ```
 
 ### Option B: Anonymous per-call USDC (no signup)
@@ -26,6 +26,19 @@ curl "https://mymedi-ai.com/agent/v1/demo?code=99213"
 ```
 
 Returns basic code metadata (10/hour rate-limited). Paid tier unlocks RVU, Medicare reimbursement (PFS + OPPS), crosswalks, and AI features.
+
+## Works without an API key
+
+Four tools are free and need no API key — install the server with no `MCP_API_KEY` and they work immediately (rate-limited 10/hour/IP):
+
+| Tool | Description |
+|------|-------------|
+| `pa_required_check` | Medicare DMEPOS prior-auth required check — CMS Required Prior Authorization List (42 CFR 414.234) |
+| `denial_code_info` | DME denial code (CARC) explainer — meaning, common causes, fixes, appealability |
+| `code_lookup_basic` | Basic medical code lookup — code, type, description, category, active status |
+| `reimbursement_basic` | Medicare national PFS payment rate — CMS RVU × conversion factor |
+
+The other 20 paid tools need an API key from `POST /bot-marketplace/register` (100 starter credits).
 
 ## Client Setup
 
@@ -69,7 +82,15 @@ Add to MCP settings:
 claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 ```
 
-## Tools (20)
+## Tools (24)
+
+### Free (no API key)
+| Tool | Description | Price |
+|------|-------------|-------|
+| `pa_required_check` | Medicare DMEPOS prior-auth required check (42 CFR 414.234) | free |
+| `denial_code_info` | DME denial code (CARC) explainer | free |
+| `code_lookup_basic` | Basic code metadata lookup | free |
+| `reimbursement_basic` | Medicare national PFS payment rate | free |
 
 ### Medical Coding
 | Tool | Description | Price |
@@ -115,12 +136,12 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MCP_API_KEY` | API key from registration (omit for anonymous USDC) | — |
+| `MCP_API_KEY` | API key from registration (omit for free tools / anonymous USDC) | — |
 | `MCP_API_BASE_URL` | API base URL | `https://mymedi-ai.com` |
 
 ## Payment
 
-- **Free tier**: 10 starter credits on registration ($0.01 sample — enough to try the $0.001 and $0.005 tiers)
+- **Free tier**: 100 starter credits on registration ($0.10 of usage — enough to run `pa_predict` once and sample the cheap tiers)
 - **Credit rate**: $0.001 per credit (1 credit = 1 cheapest call)
 - **x402 USDC**: Pay per call on Base chain — no signup, agent-native commerce
 - **Stripe**: Credit packages at [mymedi-ai.com/bot-marketplace/credits/pricing](https://mymedi-ai.com/bot-marketplace/credits/pricing)
