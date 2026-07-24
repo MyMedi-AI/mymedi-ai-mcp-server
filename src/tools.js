@@ -1,6 +1,7 @@
 /**
  * MCP Tool Definitions for MyMedi-AI Healthcare Agent API
- * 25 tools: 5 free no-auth + 20 x402-protected REST endpoints mapped to MCP tool format.
+ * 32 tools: 6 free no-auth + 24 x402-protected + 2 account/billing (auth, free)
+ * REST endpoints mapped to MCP tool format.
  * Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
  */
 import { z } from 'zod';
@@ -81,24 +82,53 @@ export const MCP_TOOLS = [
       code: z.string().describe('HCPCS Level II code (e.g., "E0466")'),
     },
   },
+  {
+    name: 'modifier_advisor',
+    title: 'DMEPOS billing-modifier advisor (free)',
+    description: 'Editorial guidance on DMEPOS billing modifiers: the KX/GA/GY/GZ medical-necessity and liability family, RR/NU/UE rental-vs-purchase, capped-rental month markers (KH/KI/KJ), and RT/LT laterality. Pass a HCPCS code to scope guidance to that item\'s DMEPOS category, or a category directly; add a scenario phrase (e.g., "ABN on file", "bilateral") to surface the relevant modifiers. Original editorial content, not payer policy. PHI-free. Free, no API key required.',
+    price: 'free',
+    auth: false,
+    method: 'GET',
+    endpoint: '/agent/v1/modifiers',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      code: z.string().optional().describe('HCPCS DMEPOS code to scope guidance to (e.g., "E0601")'),
+      category: z.string().optional().describe('DMEPOS category instead of a code (e.g., "oxygen", "capped-rental", "prosthetics")'),
+      scenario: z.string().optional().describe('Optional situation phrase (e.g., "ABN on file", "bilateral AFO", "converting rental to purchase")'),
+    },
+  },
 
   // --- Medical Coding ---
   {
     name: 'code_lookup',
     title: 'Medical code lookup (ICD-10 / CPT / HCPCS)',
-    description: 'Look up medical codes (ICD-10, CPT, HCPCS) by code string. Returns description, category, active status, and related codes.',
+    description: 'Look up a medical code (ICD-10, CPT, HCPCS). Returns description, category, active status, and related codes. For DMEPOS (HCPCS) codes it also returns a labeled fee schedule: per-modifier (RR/NU/UE) national min–max ranges, or — when a state is given — that state\'s exact non-rural and rural rates. Source: CMS DMEPOS Fee Schedule (DME26-B).',
     price: '$0.001',
     endpoint: '/agent/v1/codes/lookup',
     annotations: READ_ONLY_ANNOTATIONS,
     schema: {
       code: z.string().describe('Medical code to look up (e.g., "M79.3", "99213", "E0601")'),
       codeType: z.enum(['icd10', 'cpt', 'hcpcs']).optional().describe('Code system (auto-detected if omitted)'),
+      state: z.string().optional().describe('2-letter US jurisdiction (50 states + DC/PR/VI). For DMEPOS codes, returns that state\'s exact non-rural/rural fees instead of only the national range.'),
+    },
+  },
+  {
+    name: 'code_lookup_batch',
+    title: 'Batch medical code lookup (up to 25 codes)',
+    description: 'Look up a list of medical codes (ICD-10, CPT, HCPCS) in one call. Per-item results mirror code_lookup (description, category, active status, related codes, DMEPOS fee schedule with optional state filter). Priced per code — $0.001 × number of codes, max 25 per call; the full charge is refunded automatically when every code misses.',
+    price: '$0.001',
+    endpoint: '/agent/v1/codes/lookup-batch',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      codes: z.array(z.string()).min(1).max(25).describe('Medical codes to look up, e.g. ["E0601", "A7030", "M79.3"] (1-25 per call)'),
+      codeType: z.enum(['icd10', 'cpt', 'hcpcs']).optional().describe('Code system applied to every code (auto-detected if omitted)'),
+      state: z.string().optional().describe('2-letter US jurisdiction (50 states + DC/PR/VI). For DMEPOS codes, returns that state\'s exact non-rural/rural fees instead of only the national range.'),
     },
   },
   {
     name: 'code_suggest',
-    title: 'AI medical code suggestions from clinical text',
-    description: 'Get AI-powered medical code suggestions from a clinical description. Returns ranked code suggestions with relevance scores.',
+    title: 'Medical code suggestions from clinical text',
+    description: 'Suggest ICD-10/CPT/HCPCS codes from a clinical description. Term-based search over the 81K-code CMS database, ranked by matched-term coverage and relevance. Works with natural sentences ("patient with obstructive sleep apnea prescribed CPAP"). Automatically refunds the call when nothing matches.',
     price: '$0.01',
     endpoint: '/agent/v1/codes/suggest',
     annotations: READ_ONLY_ANNOTATIONS,
@@ -123,21 +153,33 @@ export const MCP_TOOLS = [
       }).optional(),
     },
   },
+  {
+    name: 'code_validate_batch',
+    title: 'Batch medical code validation (up to 25 codes)',
+    description: 'Validate a list of medical codes for correctness, active status, and optional date-of-service context in one call. Per-item results mirror code_validate (valid, active, warnings, errors, codeDetails). Priced per code — $0.005 × number of codes, max 25 per call. An invalid code is a billable answer (valid:false), same as the single validate.',
+    price: '$0.005',
+    endpoint: '/agent/v1/codes/validate-batch',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      codes: z.array(z.string()).min(1).max(25).describe('Medical codes to validate (1-25 per call)'),
+      codeType: z.enum(['icd10', 'cpt', 'hcpcs']).optional().describe('Code system applied to every code'),
+      context: z.object({
+        dateOfService: z.string().optional().describe('Date of service (YYYY-MM-DD) for temporal validation, applied to every code'),
+      }).optional(),
+    },
+  },
 
   // --- Prior Authorization ---
   {
     name: 'pa_predict',
-    title: 'Prior-auth approval likelihood predictor',
-    description: 'Predict prior authorization approval probability for a procedure. Returns approval likelihood (0-1), confidence level, estimated processing days, and contributing factors.',
+    title: 'Prior-auth approval rate + CMS requirement facts',
+    description: 'Prior-authorization outlook for a procedure code. When a historical cohort of decided PAs exists (≥10), returns a data-driven approval rate with cohort size and confidence. When no cohort exists, returns the verifiable facts instead — CMS Required Prior Authorization List status, category, and published review timeframes — and explicitly reports that no probability was computed (the call is refunded on this path). Never fabricates a probability. Original Medicare FFS scope.',
     price: '$0.05',
     endpoint: '/agent/v1/pa/predict',
     annotations: READ_ONLY_ANNOTATIONS,
     schema: {
-      procedureCode: z.string().describe('CPT/HCPCS procedure code'),
-      diagnosisCodes: z.array(z.string()).optional().describe('Supporting ICD-10 diagnosis codes'),
-      payerId: z.string().optional().describe('Insurance payer ID'),
-      patientAge: z.number().optional().describe('Patient age in years'),
-      patientGender: z.enum(['M', 'F', 'O']).optional(),
+      procedureCode: z.string().describe('CPT/HCPCS procedure code (e.g., "E0651", "K0800")'),
+      payerId: z.string().optional().describe('Insurance payer ID — narrows the approval-rate cohort to that payer when historical data exists'),
     },
   },
   {
@@ -150,6 +192,17 @@ export const MCP_TOOLS = [
     schema: {
       authorizationId: z.string().optional().describe('Prior authorization ID'),
       trackingNumber: z.string().optional().describe('Tracking number (alternative to authorizationId)'),
+    },
+  },
+  {
+    name: 'pa_exposure_report',
+    title: 'PA/WOPD catalog exposure report (up to 100 codes)',
+    description: 'Map a supplier HCPCS catalog against the CMS Required Prior Authorization List (74 items) and the Required Face-to-Face Encounter & Written Order Prior to Delivery List (83 items, effective 2026-04-13). Per code: PA requirement with nationwide-since date, F2F/WOPD requirement, documentation gates (SWO, UTN-before-claim, F2F/WOPD sequencing), and deterministic denial-risk flags — plus a catalog-level exposure summary. Unknown or non-HCPCS codes are flagged and count as billable answers. Priced per code — $0.01 × number of codes, max 100 per call. Returns JSON here; the REST endpoint also renders a branded PDF with {"format":"pdf"}. Original Medicare FFS scope. PHI-free: codes in, rules out.',
+    price: '$0.01',
+    endpoint: '/agent/v1/pa/exposure-report',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      codes: z.array(z.string()).min(1).max(100).describe('Supplier catalog HCPCS codes, e.g. ["E0651", "L0651", "K0856"] (1-100 per call)'),
     },
   },
 
@@ -238,6 +291,19 @@ export const MCP_TOOLS = [
     schema: {
       code: z.string().describe('Medical code (e.g., "99213", "M79.3")'),
       codeType: z.enum(['ICD10', 'CPT', 'HCPCS']).optional().describe('Code system (auto-detected if omitted)'),
+    },
+  },
+  {
+    name: 'fee_schedule_lookup',
+    title: 'DMEPOS fee schedule (state + modifier specific)',
+    description: 'Look up the CMS DMEPOS fee schedule for a DME/orthotic/prosthetic HCPCS code: rental (RR) vs purchase (NU new / UE used), non-rural vs rural, per state. Give a state for exact rates, or omit for national min–max ranges; filter by modifier to narrow to rental or purchase. Source: CMS DMEPOS Fee Schedule DME26-B (Apr 2026). For professional-service (CPT) payment use code_reimbursement instead.',
+    price: '$0.01',
+    endpoint: '/agent/v1/codes/fee-schedule',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {
+      code: z.string().describe('DMEPOS HCPCS code (e.g., "E0601", "K0800", "E1390")'),
+      state: z.string().optional().describe('2-letter US jurisdiction (50 states + DC/PR/VI) for exact non-rural/rural rates; omit for national ranges'),
+      modifier: z.enum(['RR', 'NU', 'UE']).optional().describe('Narrow to rental (RR) or purchase (NU new / UE used)'),
     },
   },
 
@@ -364,6 +430,39 @@ export const MCP_TOOLS = [
     schema: {
       state: z.string().describe('2-letter state code (e.g., "TX", "CA")'),
       specialty: z.string().describe('Medical specialty (e.g., "cardiology", "orthopedics")'),
+    },
+  },
+
+  // --- Account & Billing (free — uses your API key) ---
+  {
+    name: 'account_status',
+    title: 'Account status — credit balance and usage (free)',
+    description: 'Check your MyMedi-AI account: current credit balance, USD equivalent, transaction count, recent transactions, and last activity. Free — never bills credits. Uses your X-API-Key.',
+    price: 'free',
+    auth: true,
+    method: 'GET',
+    endpoint: '/bot-marketplace/balance',
+    annotations: READ_ONLY_ANNOTATIONS,
+    schema: {},
+  },
+  {
+    name: 'buy_credits',
+    title: 'Buy credits — get a Stripe checkout link',
+    description: 'Top up your MyMedi-AI credits. Creates a Stripe Checkout session and returns a checkoutUrl for you to open and complete payment in the browser — calling this tool charges nothing by itself. Specify amount (USD, min $1 = 1,000 credits) or package (starter $1, basic $5, standard $25, professional $100, enterprise $500). 1 credit = $0.001; credits are added automatically after checkout.',
+    price: 'free',
+    auth: true,
+    endpoint: '/bot-marketplace/credits/purchase',
+    // NOT read-only: creates a Stripe checkout session (no charge until the
+    // user completes checkout in the browser; a new session per call).
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+    schema: {
+      amount: z.number().min(1).max(10000).optional().describe('USD amount to purchase (min $1 = 1,000 credits)'),
+      package: z.enum(['starter', 'basic', 'standard', 'professional', 'enterprise']).optional().describe('Named package: starter $1/1k, basic $5/5k, standard $25/25k, professional $100/100k, enterprise $500/500k credits (alternative to amount)'),
     },
   },
 ];

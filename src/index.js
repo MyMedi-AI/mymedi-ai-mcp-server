@@ -9,7 +9,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { MCP_TOOLS, getToolByName } from './tools.js';
 
-const SERVER_VERSION = '1.4.0';
+const SERVER_VERSION = '1.5.0';
 const API_BASE_URL = process.env.MCP_API_BASE_URL || 'https://mymedi-ai.com';
 const API_KEY = process.env.MCP_API_KEY || '';
 // Shared-egress deployments (e.g. the hosted claude.ai connector) set

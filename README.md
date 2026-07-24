@@ -4,7 +4,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-teal)](./LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-teal)](https://mymedi-ai.com/mcp-stream)
 
-MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client to **25 medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources — plus denial-decoding prompts and CMS dataset resources. Five tools work with no API key at all, and everything is read-only and PHI-free by design.
+MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client to **32 medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources — plus denial-decoding prompts and CMS dataset resources. Six tools work with no API key at all, and every clinical tool is read-only and PHI-free by design.
 
 **Claude (web or desktop) users:** Settings → Connectors → **Add custom connector** → paste `https://mymedi-ai.com/mcp-stream` — no authentication, tools work immediately.
 
@@ -35,7 +35,7 @@ Returns basic code metadata (60/hour rate-limited). Paid tier unlocks RVU, Medic
 
 ## Works without an API key
 
-Five tools are free and need no API key — install the server with no `MCP_API_KEY` and they work immediately (rate-limited 60/hour/IP):
+Six tools are free and need no API key — install the server with no `MCP_API_KEY` and they work immediately (rate-limited 60/hour/IP):
 
 | Tool | Description |
 |------|-------------|
@@ -44,8 +44,9 @@ Five tools are free and need no API key — install the server with no `MCP_API_
 | `code_lookup_basic` | Basic medical code lookup — code, type, description, category, active status |
 | `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges (rental/purchase) |
 | `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior auth (42 CFR 410.38) |
+| `modifier_advisor` | DMEPOS billing-modifier guidance — KX/GA/GY/GZ, RR/NU/UE, capped-rental, RT/LT |
 
-The other 20 paid tools need an API key from `POST /bot-marketplace/register` (100 starter credits).
+The other 24 paid tools need an API key from `POST /bot-marketplace/register` (100 starter credits); `account_status` and `buy_credits` manage that account and never bill credits.
 
 ## Client Setup
 
@@ -89,7 +90,7 @@ Add to MCP settings:
 claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 ```
 
-## Tools (25)
+## Tools (32)
 
 ### Free (no API key)
 | Tool | Description | Price |
@@ -99,21 +100,26 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 | `code_lookup_basic` | Basic code metadata lookup | free |
 | `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges | free |
 | `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist (SWO, F2F/WOPD, PA) | free |
+| `modifier_advisor` | DMEPOS billing-modifier guidance (KX/GA/GY/GZ, RR/NU/UE, RT/LT) | free |
 
 ### Medical Coding
 | Tool | Description | Price |
 |------|-------------|-------|
-| `code_lookup` | Look up ICD-10, CPT, HCPCS codes (81K+ codes) | $0.001 |
-| `code_suggest` | AI code suggestions from clinical text | $0.01 |
+| `code_lookup` | Look up ICD-10, CPT, HCPCS codes (81K+ codes) + DMEPOS fees | $0.001 |
+| `code_lookup_batch` | Batch lookup, up to 25 codes per call | $0.001/code |
+| `code_suggest` | Code suggestions from clinical text (81K-code term search) | $0.01 |
 | `code_validate` | Validate code correctness and status | $0.005 |
+| `code_validate_batch` | Batch validation, up to 25 codes per call | $0.005/code |
 | `code_crossref` | Cross-reference codes across ICD-10/CPT/HCPCS | $0.02 |
 | `code_reimbursement` | Medicare PFS + OPPS reimbursement rates (RVU, $) | $0.01 |
+| `fee_schedule_lookup` | DMEPOS fee schedule — state + RR/NU/UE modifier specific | $0.01 |
 
 ### Prior Auth & Claims
 | Tool | Description | Price |
 |------|-------------|-------|
-| `pa_predict` | Prior auth approval prediction (0–1) | $0.05 |
+| `pa_predict` | Approval rate from decided-PA cohort + CMS requirement facts | $0.05 |
 | `pa_status` | Check prior auth status | $0.02 |
+| `pa_exposure_report` | PA/WOPD catalog exposure report, up to 100 codes | $0.01/code |
 | `claims_validate` | Pre-submission claims validation | $0.05 |
 | `ner_extract` | Extract medical entities from clinical text | $0.02 |
 | `compliance_audit` | HIPAA compliance audit | $0.25 |
@@ -139,6 +145,12 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 |------|-------------|-------|
 | `trials_search` | Active clinical trials (ClinicalTrials.gov) | $0.03 |
 | `disease_surveillance` | CDC NNDSS case counts + trends | $0.02 |
+
+### Account & Billing (API key, never bills credits)
+| Tool | Description | Price |
+|------|-------------|-------|
+| `account_status` | Credit balance, USD equivalent, recent transactions | free |
+| `buy_credits` | Stripe Checkout link to top up credits ($1 = 1,000 credits) | free |
 
 ## Prompts
 
