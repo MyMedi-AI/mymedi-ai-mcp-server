@@ -93,12 +93,31 @@ function createMcpServer() {
           });
         }
         if (response.status === 402) {
-          const paymentInfo = await response.json();
+          const paymentInfo = await response.json().catch(() => ({}));
+          // A keyed install is already registered — point it at buy_credits
+          // instead of a dead-end "register again" message.
+          const balance = paymentInfo?.creditInfo?.creditBalance;
+          const guidance = API_KEY
+            ? {
+                message: `Out of credits. This tool costs ${toolDef.price} per call`
+                  + (typeof balance === 'number' ? `; your balance is ${balance} credits` : '')
+                  + `. Call the buy_credits tool to get a Stripe checkout link (packages from $1), or account_status to review your balance and usage.`,
+                topUpTool: 'buy_credits',
+                accountTool: 'account_status',
+              }
+            : {
+                // No credit count here on purpose: this package is published to
+                // npm independently of the API, so any number baked in goes
+                // stale the moment STARTER_CREDITS moves server-side.
+                message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with free starter credits, or pay per call with on-chain USDC (no signup) via the x402 protocol.`,
+                register: `${API_BASE_URL}/bot-marketplace/register`,
+              };
           return {
             content: [{ type: 'text', text: JSON.stringify({
               error: 'payment_required',
-              message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with 100 free starter credits, or pay per call with on-chain USDC (no signup) via the x402 protocol.`,
-              price: toolDef.price, register: `${API_BASE_URL}/bot-marketplace/register`, ...paymentInfo,
+              price: toolDef.price,
+              ...guidance,
+              ...paymentInfo,
             }, null, 2) }], isError: true,
           };
         }
@@ -148,6 +167,57 @@ function registerPrompts(s) {
       content: {
         type: 'text',
         text: `I am preparing a Medicare DMEPOS order for HCPCS code ${code}. Use the order_readiness_checklist tool to pull every documentation requirement, then present a blank pre-delivery checklist: the standard written order elements, any face-to-face encounter / WOPD requirement with its timing rule, and whether prior authorization must be affirmed before delivery. Flag the items suppliers most often miss. Keep it PHI-free — requirement definitions only, no patient data.`,
+      },
+    }],
+  }));
+
+  s.registerPrompt('scrub-claim', {
+    title: 'Scrub a DME claim before submission',
+    description: 'Walk a draft DME claim through claims_validate and turn the findings into a prioritized pre-submission fix list.',
+    argsSchema: {
+      procedureCodes: z.string().describe('HCPCS/CPT procedure codes on the claim, comma-separated (e.g., "E0601,A7030")'),
+      diagnosisCodes: z.string().optional().describe('ICD-10 diagnosis codes, comma-separated (e.g., "G47.33")'),
+    },
+  }, ({ procedureCodes, diagnosisCodes }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: `I am about to submit a DME claim with procedure code(s) ${procedureCodes}${diagnosisCodes ? ` and diagnosis code(s) ${diagnosisCodes}` : ''}. Use the claims_validate tool to scrub it, then give me: (1) any errors or missing fields that would cause a denial, (2) code/modifier mismatches and the correct fix, (3) whether medical necessity and prior-auth requirements look met, and (4) a prioritized pre-submission checklist. Use only these codes — send NO patient identifiers in any tool call (PHI-free: codes, modifiers, and place-of-service only).`,
+      },
+    }],
+  }));
+
+  s.registerPrompt('draft-appeal', {
+    title: 'Draft a DME denial appeal',
+    description: 'Decode a denial code and structure a redetermination/appeal letter outline with the supporting documentation to attach.',
+    argsSchema: {
+      code: z.string().describe('CARC denial code received (e.g., "CO-50")'),
+      procedureCode: z.string().optional().describe('HCPCS code that was denied (e.g., "K0823")'),
+    },
+  }, ({ code, procedureCode }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: `A DME claim${procedureCode ? ` for HCPCS ${procedureCode}` : ''} was denied with code ${code}. Use the denial_code_info tool to decode it${procedureCode ? ', and order_readiness_checklist to confirm the documentation the payer expects for this item' : ''}. Then draft the structure of a Medicare redetermination/appeal: (1) the specific reason for denial in plain language, (2) whether it is appealable and the deadline, (3) a paragraph-by-paragraph appeal-letter outline, and (4) the exact supporting documents to attach. Provide a reusable template with placeholders — insert NO patient identifiers (PHI-free).`,
+      },
+    }],
+  }));
+
+  s.registerPrompt('estimate-reimbursement', {
+    title: 'Estimate DME reimbursement for a code',
+    description: 'Pull the DMEPOS fee schedule for a code and state and explain the rental-vs-purchase and rural-vs-non-rural options.',
+    argsSchema: {
+      code: z.string().describe('DMEPOS HCPCS code (e.g., "E0601")'),
+      state: z.string().optional().describe('2-letter state (e.g., "TX")'),
+    },
+  }, ({ code, state }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: `Estimate Medicare reimbursement for HCPCS ${code}${state ? ` in ${state}` : ''}. Use the fee_schedule_lookup tool${state ? ` with state ${state}` : ''} to pull the DMEPOS rates, then explain: (1) the monthly rental (RR) vs purchase (NU new / UE used) amounts, (2) the non-rural vs rural difference and which applies, (3) any capped-rental implications, and (4) how the national range compares if no state was given. Note that these are Medicare allowables, not guaranteed payment. Requirement/rate data only — PHI-free.`,
       },
     }],
   }));

@@ -1,12 +1,12 @@
 /**
  * MCP Tool Definitions for MyMedi-AI Healthcare Agent API
- * 32 tools: 6 free no-auth + 24 x402-protected + 2 account/billing (auth, free)
- * REST endpoints mapped to MCP tool format.
- * Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
+ * 27 tools: 5 free no-auth + 20 x402-protected + 2 free account tools mapped
+ * to MCP tool format. Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
  */
 import { z } from 'zod';
 
-// All tools are read-only API lookups/predictors — none mutate anything.
+// Lookup/predictor tools are read-only — they never mutate anything.
+// (buy_credits is the exception: it creates a Stripe checkout session.)
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -153,6 +153,7 @@ export const MCP_TOOLS = [
       }).optional(),
     },
   },
+
   {
     name: 'code_validate_batch',
     title: 'Batch medical code validation (up to 25 codes)',
@@ -433,11 +434,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Account & Billing (free — uses your API key) ---
+  // --- Account & Billing (free — uses your connector sign-in or API key) ---
   {
     name: 'account_status',
     title: 'Account status — credit balance and usage (free)',
-    description: 'Check your MyMedi-AI account: current credit balance, USD equivalent, transaction count, recent transactions, and last activity. Free — never bills credits. Uses your X-API-Key.',
+    description: 'Check your MyMedi-AI account: current credit balance, USD equivalent, transaction count, recent transactions, and last activity. Free — never bills credits. Uses your connector sign-in (or X-API-Key when self-hosted).',
     price: 'free',
     auth: true,
     method: 'GET',
@@ -451,6 +452,7 @@ export const MCP_TOOLS = [
     description: 'Top up your MyMedi-AI credits. Creates a Stripe Checkout session and returns a checkoutUrl for you to open and complete payment in the browser — calling this tool charges nothing by itself. Specify amount (USD, min $1 = 1,000 credits) or package (starter $1, basic $5, standard $25, professional $100, enterprise $500). 1 credit = $0.001; credits are added automatically after checkout.',
     price: 'free',
     auth: true,
+    method: 'POST',
     endpoint: '/bot-marketplace/credits/purchase',
     // NOT read-only: creates a Stripe checkout session (no charge until the
     // user completes checkout in the browser; a new session per call).

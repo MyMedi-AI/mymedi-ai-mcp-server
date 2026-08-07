@@ -4,7 +4,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-teal)](./LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-teal)](https://mymedi-ai.com/mcp-stream)
 
-MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client to **32 medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources — plus denial-decoding prompts and CMS dataset resources. Six tools work with no API key at all, and every clinical tool is read-only and PHI-free by design.
+MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client to **32 medical billing + clinical intelligence tools** backed by 81K+ codes and 7 free government data sources — plus DME billing prompts and CMS dataset resources. Six tools work with no API key at all, and everything is read-only and PHI-free by design.
 
 **Claude (web or desktop) users:** Settings → Connectors → **Add custom connector** → paste `https://mymedi-ai.com/mcp-stream` — no authentication, tools work immediately.
 
@@ -44,9 +44,9 @@ Six tools are free and need no API key — install the server with no `MCP_API_K
 | `code_lookup_basic` | Basic medical code lookup — code, type, description, category, active status |
 | `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges (rental/purchase) |
 | `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior auth (42 CFR 410.38) |
-| `modifier_advisor` | DMEPOS billing-modifier guidance — KX/GA/GY/GZ, RR/NU/UE, capped-rental, RT/LT |
+| `modifier_advisor` | DMEPOS billing-modifier guidance — KX/GA/GY/GZ, RR/NU/UE, laterality |
 
-The other 24 paid tools need an API key from `POST /bot-marketplace/register` (100 starter credits); `account_status` and `buy_credits` manage that account and never bill credits.
+The other 20 paid tools need an API key from `POST /bot-marketplace/register` (free starter credits).
 
 ## Client Setup
 
@@ -100,26 +100,32 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 | `code_lookup_basic` | Basic code metadata lookup | free |
 | `reimbursement_basic` | Medicare national PFS payment + DMEPOS fee-schedule ranges | free |
 | `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist (SWO, F2F/WOPD, PA) | free |
-| `modifier_advisor` | DMEPOS billing-modifier guidance (KX/GA/GY/GZ, RR/NU/UE, RT/LT) | free |
+| `modifier_advisor` | DMEPOS billing-modifier guidance (KX/GA/GY/GZ, RR/NU/UE, laterality) | free |
+
+### Account (free — uses your sign-in / API key)
+| Tool | Description | Price |
+|------|-------------|-------|
+| `account_status` | Credit balance, usage, and recent transactions | free |
+| `buy_credits` | Get a Stripe checkout link to top up credits | free |
 
 ### Medical Coding
 | Tool | Description | Price |
 |------|-------------|-------|
-| `code_lookup` | Look up ICD-10, CPT, HCPCS codes (81K+ codes) + DMEPOS fees | $0.001 |
-| `code_lookup_batch` | Batch lookup, up to 25 codes per call | $0.001/code |
-| `code_suggest` | Code suggestions from clinical text (81K-code term search) | $0.01 |
+| `code_lookup` | Look up ICD-10, CPT, HCPCS codes (81K+ codes); labeled DMEPOS fee schedule + optional state | $0.001 |
+| `code_lookup_batch` | Batch lookup — up to 25 codes per call, per-item results; refunds when every code misses | $0.001/code |
+| `code_suggest` | Code suggestions from clinical text (term-search + coverage ranking; refunds on no match) | $0.01 |
 | `code_validate` | Validate code correctness and status | $0.005 |
-| `code_validate_batch` | Batch validation, up to 25 codes per call | $0.005/code |
+| `code_validate_batch` | Batch validation — up to 25 codes per call, per-item results | $0.005/code |
 | `code_crossref` | Cross-reference codes across ICD-10/CPT/HCPCS | $0.02 |
 | `code_reimbursement` | Medicare PFS + OPPS reimbursement rates (RVU, $) | $0.01 |
-| `fee_schedule_lookup` | DMEPOS fee schedule — state + RR/NU/UE modifier specific | $0.01 |
+| `fee_schedule_lookup` | DMEPOS fee schedule — rental/purchase, rural/non-rural, by state | $0.01 |
 
 ### Prior Auth & Claims
 | Tool | Description | Price |
 |------|-------------|-------|
-| `pa_predict` | Approval rate from decided-PA cohort + CMS requirement facts | $0.05 |
+| `pa_predict` | Prior-auth approval rate from real cohorts, else CMS requirement facts (no fabricated number) | $0.05 |
 | `pa_status` | Check prior auth status | $0.02 |
-| `pa_exposure_report` | PA/WOPD catalog exposure report, up to 100 codes | $0.01/code |
+| `pa_exposure_report` | PA/WOPD catalog exposure report — map up to 100 HCPCS codes against the CMS PA + F2F/WOPD lists with gates and denial-risk flags | $0.01/code |
 | `claims_validate` | Pre-submission claims validation | $0.05 |
 | `ner_extract` | Extract medical entities from clinical text | $0.02 |
 | `compliance_audit` | HIPAA compliance audit | $0.25 |
@@ -146,18 +152,15 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 | `trials_search` | Active clinical trials (ClinicalTrials.gov) | $0.03 |
 | `disease_surveillance` | CDC NNDSS case counts + trends | $0.02 |
 
-### Account & Billing (API key, never bills credits)
-| Tool | Description | Price |
-|------|-------------|-------|
-| `account_status` | Credit balance, USD equivalent, recent transactions | free |
-| `buy_credits` | Stripe Checkout link to top up credits ($1 = 1,000 credits) | free |
-
 ## Prompts
 
 | Prompt | Arguments | What it does |
 |--------|-----------|--------------|
 | `decode-denial` | `code` (CARC, e.g. `CO-50`) | Decodes the denial via `denial_code_info`, then builds a fix/resubmit/appeal action plan |
 | `order-readiness` | `code` (HCPCS, e.g. `E0466`) | Assembles the blank pre-delivery paperwork checklist via `order_readiness_checklist` |
+| `scrub-claim` | `procedureCodes`, `diagnosisCodes?` | Runs `claims_validate` and turns the findings into a prioritized pre-submission fix list |
+| `draft-appeal` | `code` (CARC), `procedureCode?` | Decodes the denial and structures a redetermination/appeal letter outline with documents to attach |
+| `estimate-reimbursement` | `code` (HCPCS), `state?` | Pulls `fee_schedule_lookup` and explains rental-vs-purchase and rural-vs-non-rural options |
 
 ## Resources
 
@@ -177,7 +180,7 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 
 ## Payment
 
-- **Free tier**: 100 starter credits on registration ($0.10 of usage — enough to run `pa_predict` once and sample the cheap tiers)
+- **Free tier**: free starter credits on registration — currently enough to run `pa_predict` once and sample the cheap tiers
 - **Credit rate**: $0.001 per credit (1 credit = 1 cheapest call)
 - **x402 USDC**: Pay per call on Base chain — no signup, agent-native commerce
 - **Stripe**: Credit packages at [mymedi-ai.com/bot-marketplace/credits/pricing](https://mymedi-ai.com/bot-marketplace/credits/pricing)
@@ -225,7 +228,7 @@ All 7 license-free government sources:
 
 ## Troubleshooting
 
-- **"Payment required" / 402 responses** — the tool you called is pay-per-call and no API key is configured. Register a free key (100 starter credits): `curl -X POST https://mymedi-ai.com/bot-marketplace/register -H "Content-Type: application/json" -d '{"name":"your-agent"}'`, then set `MCP_API_KEY`. The five free tools never need a key.
+- **"Payment required" / 402 responses** — the tool you called is pay-per-call and no API key is configured. Register a free key (free starter credits): `curl -X POST https://mymedi-ai.com/bot-marketplace/register -H "Content-Type: application/json" -d '{"name":"your-agent"}'`, then set `MCP_API_KEY`. The six free tools never need a key.
 - **429 / rate-limited on free tools** — free endpoints allow 60 requests/hour per IP. Wait, or register a key and use the paid equivalents.
 - **Connector won't connect** — the hosted endpoint is `https://mymedi-ai.com/mcp-stream` over Streamable HTTP. Verify it from a terminal: `npx -y @modelcontextprotocol/inspector --cli https://mymedi-ai.com/mcp-stream --transport http --method tools/list`.
 - **Code not found** — lookups expect bare code strings (`E1390`, `99213`, `M79.3`). Denial codes accept `CO-50`, `co50`, or `50`.
