@@ -1,6 +1,6 @@
 /**
  * MCP Tool Definitions for MyMedi-AI Healthcare Agent API
- * 27 tools: 5 free no-auth + 20 x402-protected + 2 free account tools mapped
+ * 32 tools: 6 free no-auth + 24 paid + 2 free account tools mapped
  * to MCP tool format. Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
  */
 import { z } from 'zod';

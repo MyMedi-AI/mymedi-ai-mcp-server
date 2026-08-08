@@ -10,20 +10,17 @@ MCP server for healthcare AI. Connect Claude, Cursor, VS Code, or any MCP client
 
 ## Quick Start
 
-Two ways to pay — pick either:
-
-### Option A: Register for credits (100 free)
+### Register for credits
 
 ```bash
 curl -X POST https://mymedi-ai.com/bot-marketplace/register \
   -H "Content-Type: application/json" \
   -d '{"name": "my-agent"}'
-# → { apiKey, credits: 100 }
+# → { apiKey, credits }
 ```
 
-### Option B: Anonymous per-call USDC (no signup)
-
-Send USDC on Base to the treasury wallet and include the signed payment in `X-402-Payment` header. True agent-to-agent commerce. See [`/agent/v1/pricing`](https://mymedi-ai.com/agent/v1/pricing) for details.
+Registration includes free starter credits. Top up with Stripe at
+[`/bot-marketplace/credits/pricing`](https://mymedi-ai.com/bot-marketplace/credits/pricing).
 
 ### Or try free
 
@@ -174,7 +171,7 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MCP_API_KEY` | API key from registration (omit for free tools / anonymous USDC) | — |
+| `MCP_API_KEY` | API key from registration (omit to use only the free tools) | — |
 | `MCP_API_BASE_URL` | API base URL | `https://mymedi-ai.com` |
 | `MCP_CONNECTOR_TOKEN` | Shared-egress rate-limit token for hosted multi-user deployments (not needed for individual installs) | — |
 
@@ -182,9 +179,7 @@ claude mcp add mymedi-ai -- npx -y @mymedi-ai/mcp-server
 
 - **Free tier**: free starter credits on registration — currently enough to run `pa_predict` once and sample the cheap tiers
 - **Credit rate**: $0.001 per credit (1 credit = 1 cheapest call)
-- **x402 USDC**: Pay per call on Base chain — no signup, agent-native commerce
 - **Stripe**: Credit packages at [mymedi-ai.com/bot-marketplace/credits/pricing](https://mymedi-ai.com/bot-marketplace/credits/pricing)
-- **USDC deposit**: Send to treasury wallet and redeem for credits
 
 ## Credit Balance Headers
 

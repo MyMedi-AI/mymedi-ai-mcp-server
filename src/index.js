@@ -143,7 +143,7 @@ function createMcpServer() {
                 // No credit count here on purpose: this package is published to
                 // npm independently of the API, so any number baked in goes
                 // stale the moment STARTER_CREDITS moves server-side.
-                message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with free starter credits, or pay per call with on-chain USDC (no signup) via the x402 protocol.`,
+                message: `This tool costs ${toolDef.price} per call. Register at ${API_BASE_URL}/bot-marketplace/register for an API key with free starter credits, then top up with Stripe at ${API_BASE_URL}/bot-marketplace/credits/pricing.`,
                 register: `${API_BASE_URL}/bot-marketplace/register`,
               };
           return {
