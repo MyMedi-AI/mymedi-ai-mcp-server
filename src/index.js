@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -9,7 +10,11 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { MCP_TOOLS, getToolByName } from './tools.js';
 
-const SERVER_VERSION = '1.5.0';
+// Read from package.json rather than restated here: this was hardcoded '1.5.0'
+// while package.json shipped 1.7.2, so the MCP handshake and User-Agent had
+// been advertising a version two minors stale since 9358f26. createRequire
+// keeps it working on Node 18 (import attributes are not available there).
+const SERVER_VERSION = createRequire(import.meta.url)('../package.json').version;
 const API_BASE_URL = process.env.MCP_API_BASE_URL || 'https://mymedi-ai.com';
 const API_KEY = process.env.MCP_API_KEY || '';
 // Shared-egress deployments (e.g. the hosted claude.ai connector) set
@@ -53,6 +58,35 @@ const RESOURCE_DEFS = [
     fetchPath: '/llms.txt',
   },
 ];
+
+// Every prompt argument is a strictly-patterned medical code — a CARC denial
+// code, a HCPCS/CPT procedure code, an ICD-10 diagnosis, or a state. None of
+// them is free text, so the accepted shape is narrow enough to state exactly.
+// Pinning it rejects a malformed code before it reaches a template (a typo'd
+// code otherwise sails through and yields a confidently wrong answer), and
+// leaves the interpolated value inert by construction: a value matching these
+// patterns cannot carry a sentence. The SDK surfaces each `pattern` in
+// prompts/list, so callers see the contract too.
+//
+// These must stay above `createMcpServer()` below — it runs at module load and
+// reaches them through registerPrompts(), so a later `const` is still in TDZ.
+const CARC_CODE = /^(?:CO|PR|OA|PI|CR)?-?[A-Z]?\d{1,3}$/i;
+const HCPCS_CODE = /^[A-Z]\d{4}(?:-[A-Z0-9]{2})?$/i;
+const PROCEDURE_CODE = /^(?:[A-Z]\d{4}|\d{5})(?:-[A-Z0-9]{2})?$/i;
+const ICD10_CODE = /^[A-Z]\d{2}(?:\.[A-Z0-9]{1,4})?$/i;
+const STATE_CODE = /^[A-Z]{2}$/i;
+
+const codeArg = (pattern, label) =>
+  z.string().trim().regex(pattern, `Must be a valid ${label}`);
+
+const codeListArg = (pattern, label) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (v) => v.split(',').every((c) => pattern.test(c.trim())),
+      `Must be a comma-separated list of valid ${label}s`
+    );
 
 // Shared server instance for stdio mode
 const server = createMcpServer();
@@ -146,7 +180,7 @@ function registerPrompts(s) {
   s.registerPrompt('decode-denial', {
     title: 'Decode a DME claim denial',
     description: 'Explain a CARC denial code and build an action plan to fix, resubmit, or appeal the claim.',
-    argsSchema: { code: z.string().describe('CARC denial code (e.g., "CO-50")') },
+    argsSchema: { code: codeArg(CARC_CODE, 'CARC denial code').describe('CARC denial code (e.g., "CO-50")') },
   }, ({ code }) => ({
     messages: [{
       role: 'user',
@@ -160,7 +194,7 @@ function registerPrompts(s) {
   s.registerPrompt('order-readiness', {
     title: 'DMEPOS order-readiness review',
     description: 'Assemble the blank pre-delivery paperwork checklist for a HCPCS code: SWO elements, F2F/WOPD, and prior authorization.',
-    argsSchema: { code: z.string().describe('HCPCS Level II code (e.g., "E0466")') },
+    argsSchema: { code: codeArg(HCPCS_CODE, 'HCPCS Level II code').describe('HCPCS Level II code (e.g., "E0466")') },
   }, ({ code }) => ({
     messages: [{
       role: 'user',
@@ -175,8 +209,8 @@ function registerPrompts(s) {
     title: 'Scrub a DME claim before submission',
     description: 'Walk a draft DME claim through claims_validate and turn the findings into a prioritized pre-submission fix list.',
     argsSchema: {
-      procedureCodes: z.string().describe('HCPCS/CPT procedure codes on the claim, comma-separated (e.g., "E0601,A7030")'),
-      diagnosisCodes: z.string().optional().describe('ICD-10 diagnosis codes, comma-separated (e.g., "G47.33")'),
+      procedureCodes: codeListArg(PROCEDURE_CODE, 'HCPCS/CPT procedure code').describe('HCPCS/CPT procedure codes on the claim, comma-separated (e.g., "E0601,A7030")'),
+      diagnosisCodes: codeListArg(ICD10_CODE, 'ICD-10 diagnosis code').optional().describe('ICD-10 diagnosis codes, comma-separated (e.g., "G47.33")'),
     },
   }, ({ procedureCodes, diagnosisCodes }) => ({
     messages: [{
@@ -192,8 +226,8 @@ function registerPrompts(s) {
     title: 'Draft a DME denial appeal',
     description: 'Decode a denial code and structure a redetermination/appeal letter outline with the supporting documentation to attach.',
     argsSchema: {
-      code: z.string().describe('CARC denial code received (e.g., "CO-50")'),
-      procedureCode: z.string().optional().describe('HCPCS code that was denied (e.g., "K0823")'),
+      code: codeArg(CARC_CODE, 'CARC denial code').describe('CARC denial code received (e.g., "CO-50")'),
+      procedureCode: codeArg(HCPCS_CODE, 'HCPCS code').optional().describe('HCPCS code that was denied (e.g., "K0823")'),
     },
   }, ({ code, procedureCode }) => ({
     messages: [{
@@ -209,8 +243,8 @@ function registerPrompts(s) {
     title: 'Estimate DME reimbursement for a code',
     description: 'Pull the DMEPOS fee schedule for a code and state and explain the rental-vs-purchase and rural-vs-non-rural options.',
     argsSchema: {
-      code: z.string().describe('DMEPOS HCPCS code (e.g., "E0601")'),
-      state: z.string().optional().describe('2-letter state (e.g., "TX")'),
+      code: codeArg(HCPCS_CODE, 'DMEPOS HCPCS code').describe('DMEPOS HCPCS code (e.g., "E0601")'),
+      state: codeArg(STATE_CODE, '2-letter state code').optional().describe('2-letter state (e.g., "TX")'),
     },
   }, ({ code, state }) => ({
     messages: [{
