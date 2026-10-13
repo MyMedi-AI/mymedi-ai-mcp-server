@@ -1,12 +1,13 @@
 {
   "name": "@mymedi-ai/mcp-server",
-  "version": "1.7.4",
-  "description": "MCP server for healthcare AI — medical coding, DMEPOS fee schedules, drug intelligence, reimbursement rates, clinical trials, physician payments, disease surveillance, prior auth, NER, claims validation, HIPAA compliance. 32 tools — 6 free no-auth + 24 pay-per-call via credits or USDC + 2 account tools — plus DME billing prompts and CMS dataset resources.",
+  "version": "1.7.6",
+  "description": "MCP server for DME billing and medical coding: HCPCS, ICD-10 and CPT lookup, DMEPOS fee schedules, Medicare prior-auth and F2F checks, denial codes, claim checks. 32 tools, 6 free. PHI-free.",
+  "mcpName": "io.github.MyMedi-AI/mcp-server",
   "type": "module",
   "main": "./src/index.js",
   "module": "./src/index.js",
   "bin": {
-    "mymedi-ai-mcp": "./src/index.js"
+    "mymedi-ai-mcp": "src/index.js"
   },
   "files": [
     "src/",
@@ -16,19 +17,24 @@
   "keywords": [
     "mcp",
     "mcp-server",
-    "healthcare",
+    "dme",
+    "dmepos",
+    "medicare",
+    "prior-authorization",
+    "medical-billing",
     "medical-coding",
-    "hipaa",
+    "hcpcs",
     "icd-10",
     "cpt",
-    "hcpcs",
-    "prior-auth",
+    "denial-codes",
     "claims",
-    "nlp",
-    "ai-agent",
-    "x402",
+    "healthcare",
     "claude-desktop"
   ],
+  "scripts": {
+    "build": "echo 'No build step required — MCP server runs directly from src/index.js'",
+    "test": "node --test"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -36,14 +42,11 @@
   },
   "homepage": "https://mymedi-ai.com",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "zod": "^3.23.8"
-  },
-  "scripts": {
-    "build": "echo 'No build step required — MCP server runs directly from src/index.js'"
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^3.25.0"
   },
   "bugs": {
     "url": "https://github.com/MyMedi-AI/mymedi-ai-mcp-server/issues"

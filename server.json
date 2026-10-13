@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.MyMedi-AI/mcp-server",
+  "title": "MyMedi-AI",
+  "description": "DME billing and medical coding: code lookup, DMEPOS fee schedules, Medicare prior-auth checks",
+  "repository": {
+    "url": "https://github.com/MyMedi-AI/mymedi-ai-mcp-server",
+    "source": "github"
+  },
+  "version": "1.7.6",
+  "websiteUrl": "https://mymedi-ai.com",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@mymedi-ai/mcp-server",
+      "version": "1.7.6",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MCP_API_KEY",
+          "description": "MyMedi-AI API key for the paid tools; the six free tools work without one",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mymedi-ai.com/mcp-stream"
+    }
+  ]
+}
