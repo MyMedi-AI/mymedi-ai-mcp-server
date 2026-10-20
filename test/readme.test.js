@@ -59,6 +59,12 @@ describe('README: the tool catalog comes from MCP_TOOLS', () => {
     assert.ok(README.includes(`from ${low} credit${low === 1 ? '' : 's'} (\`${cheapest}\`) to ${high} credits (\`${dearest}\`) per call`));
   });
 
+  it('should not say every paid tool is priced per call: the batch tools are priced per code', () => {
+    const intro = section('## Free tools (no API key)');
+    assert.doesNotMatch(intro, /\d+ are paid per call/);
+    for (const tool of MCP_TOOLS.filter(isPerCode)) assert.ok(intro.includes(`\`${tool.name}\``), tool.name);
+  });
+
   it('should name the six free no-key tools in the free-tools table', () => {
     const free = tableRows(section('## Free tools (no API key)')).map((row) => cells(row)[0].replace(/`/g, ''));
     assert.deepEqual(free.sort(), MCP_TOOLS.filter((t) => t.price === 'free' && t.auth === false).map((t) => t.name).sort());
@@ -110,6 +116,8 @@ describe('README: claims the product does not make', () => {
     ['a crypto / USDC / x402 payment rail', /USDC|x402|crypto/i],
     ['"everything is read-only" (buy_credits opens a checkout)', /everything is read-only|all (the )?tools are read-only/i],
     ['CPT as public domain (it is AMA copyright)', /CPT[^.\n]*public domain|public domain[^.\n]*CPT/i],
+    ['a public-domain claim about any data source (RxNorm, for one, comes under NLM terms)', /public domain/i],
+    ['drug names, HCPCS codes or spans from ner_extract (it pattern-matches codes, dates and a dose unit)', /`ner_extract`[^\n]*((?<!no )drug names|medication names|HCPCS|span)/i],
     ['"no account needed" for the OAuth connector', /no account needed/i],
     ['the JSON price list as a Stripe or top-up page', /(Stripe|top[- ]?up)[\s\S]{0,80}credits\/pricing|credits\/pricing[\s\S]{0,80}(Stripe|top[- ]?up)/i],
     ['a browsable link to the POST-only register endpoint', /\]\(https:\/\/mymedi-ai\.com\/bot-marketplace\/register\)/],
@@ -160,6 +168,12 @@ describe('README: claims the product does not make', () => {
     emails.forEach((email) => assert.match(email, /@mymedi-ai\.com$/, email));
     assert.doesNotMatch(README, /\b(?:author|maintainer|written by|created by)\b\s*:/i);
     assert.doesNotMatch(README, /linkedin\.com\/in\/|(?:twitter|x)\.com\/\w/i);
+  });
+
+  it('should give info@mymedi-ai.com as the only contact address', () => {
+    const emails = README.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    assert.ok(emails.length > 0);
+    emails.forEach((email) => assert.equal(email, 'info@mymedi-ai.com'));
   });
 
   it('should describe the _billing field paid results carry', () => {

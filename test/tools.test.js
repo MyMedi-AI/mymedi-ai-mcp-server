@@ -51,11 +51,42 @@ describe('tool catalog', () => {
 });
 
 describe('tool descriptions say only what the tools return', () => {
+  // Licence status is not uniform (RxNorm comes under NLM's terms; the CMS
+  // RVU files carry AMA-copyright CPT content), so sources are named, never
+  // described as public domain.
+  it('should make no public-domain or licence claim about a data source', () => {
+    for (const tool of MCP_TOOLS) {
+      assert.doesNotMatch(`${tool.title}\n${tool.description}`, /public domain|no licen[cs]e/i, tool.name);
+    }
+  });
+
   it('market_analysis: should describe the NPPES floor and a labelled model estimate, not density or competition metrics', () => {
     const { description } = getToolByName('market_analysis');
     assert.doesNotMatch(description, /provider density|competition|market opportunity data/i);
     assert.match(description, /at most 200 records, so the figure is a floor, not a provider count/);
     assert.match(description, /LLM-generated estimate, labelled as such/);
+  });
+
+  it('drug_enrich: should describe the label and a labelled LLM summary, with no PA likelihood, cost tier or interaction check', () => {
+    const { title, description } = getToolByName('drug_enrich');
+    assert.doesNotMatch(`${title}\n${description}`, /prior[- ]auth\w* likelihood|cost tier|AI analysis/i);
+    assert.match(description, /LLM-generated summary, labelled as such/);
+    assert.match(description, /does not check interactions between drugs — use drug_interactions/);
+    assert.match(description, /A failed call \(drug not found, openFDA or the model unavailable\) is refunded/);
+  });
+
+  it('ner_extract: should describe the patterns it matches, with no HCPCS codes, drug names or spans', () => {
+    const { title, description, schema } = getToolByName('ner_extract');
+    assert.doesNotMatch(`${title}\n${description}`, /and HCPCS codes|medication names|span/i);
+    assert.match(description, /does not extract drug names or HCPCS codes/);
+    assert.match(schema.entityTypes.description, /ICD10_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR/);
+  });
+
+  it('pa_predict: should say the approval cohort is the caller organization\'s own decided PAs', () => {
+    const { description, schema } = getToolByName('pa_predict');
+    assert.match(description, /computed only from your organization's own decided prior authorizations for that code/);
+    assert.match(description, /an API key or account with no organization has no cohort/);
+    assert.match(schema.payerId.description, /narrows your organization's own decided-PA cohort to that payer/);
   });
 
   it('provider_enrich: should describe the NPPES record and a labelled model estimate, not affiliations or market context', () => {

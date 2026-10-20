@@ -54,7 +54,7 @@ function buildServerInstructions(tools, { isPerCode }) {
 const MAX_TEXT = 500;
 const MAX_CLAIM_CODE = 10; // each code / modifier on a claim; dateOfService (YYYY-MM-DD)
 const MAX_CLINICAL_TEXT = 20000; // ner_extract text; compliance_audit payload
-const MAX_CODE_DESCRIPTION = 2000; // code_suggest
+const MAX_CODE_DESCRIPTION = 500; // code_suggest: the search reads no more
 const MAX_TRIALS_QUERY = 200; // trials_search query fields
 const MAX_NAME = 100; // provider_search names; market_analysis specialty
 const MAX_RESULTS = 50;
@@ -204,7 +204,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_suggest',
     title: 'Medical code suggestions from clinical text',
-    description: 'Suggest ICD-10/CPT/HCPCS codes from a clinical description. Term-based search over the 90K-code CMS database, ranked by matched-term coverage and relevance. Works with natural sentences ("patient with obstructive sleep apnea prescribed CPAP"). Automatically refunds the call when nothing matches.',
+    description: 'Suggest ICD-10/CPT/HCPCS codes from a clinical description. Term-based search over the 90K-code CMS database, ranked by matched-term coverage and relevance. Works with natural sentences ("patient with obstructive sleep apnea prescribed CPAP"): up to 500 characters, of which up to 10 distinct terms are searched, common words left out. Automatically refunds the call when nothing matches.',
     price: '$0.01',
     endpoint: '/agent/v1/codes/suggest',
     annotations: PAID_LOOKUP,
@@ -250,13 +250,13 @@ export const MCP_TOOLS = [
   {
     name: 'pa_predict',
     title: 'Prior-auth approval rate + CMS requirement facts',
-    description: 'Prior-authorization outlook for a procedure code. When a historical cohort of decided PAs exists (≥10), returns a data-driven approval rate with cohort size and confidence. When no cohort exists, returns the verifiable facts instead — CMS Required Prior Authorization List status, category, and published review timeframes — and explicitly reports that no probability was computed (the call is refunded on this path). Never fabricates a probability. Original Medicare FFS scope.',
+    description: 'Prior-authorization outlook for a procedure code. The approval rate is computed only from your organization\'s own decided prior authorizations for that code — never from other customers\' records — and needs at least 10; an API key or account with no organization has no cohort. With a cohort it returns the approval rate with cohort size and confidence. Without one it returns the verifiable facts instead — CMS Required Prior Authorization List status, category, and published review timeframes — and explicitly reports that no probability was computed (the call is refunded on this path). Never fabricates a probability. Original Medicare FFS scope.',
     price: '$0.05',
     endpoint: '/agent/v1/pa/predict',
     annotations: PAID_LOOKUP,
     schema: {
       procedureCode: text().describe('CPT/HCPCS procedure code (e.g., "E0651", "K0800")'),
-      payerId: text().optional().describe('Insurance payer ID — narrows the approval-rate cohort to that payer when historical data exists'),
+      payerId: text().optional().describe('Payer category, e.g. "MEDICARE", "AETNA" or "UNITED_HEALTHCARE" (any letter case) — narrows your organization\'s own decided-PA cohort to that payer. A payer\'s own ID number names no category, so it finds no cohort.'),
     },
   },
   {
@@ -289,14 +289,14 @@ export const MCP_TOOLS = [
   // --- NLP ---
   {
     name: 'ner_extract',
-    title: 'Medical named-entity extraction from clinical text',
-    description: 'Extract medical codes and clinical terms already present in free text: ICD-10, CPT and HCPCS codes, dates, and medication names, each with a span and a pattern-based confidence. Deterministic pattern extraction — it does not infer or suggest codes (use code_suggest for that). PHI-free: send de-identified text only.',
+    title: 'Pattern extraction of codes and dates from clinical text',
+    description: 'Pattern-match codes and dates already present in de-identified text: ICD-10-style codes (an uppercase letter, two digits and an optional decimal part of up to four digits), any five-digit number as a CPT candidate (ZIP codes match too), M/D/Y dates, and one MEDICATION_INDICATOR entity when a dose unit (mg, mcg or mL) appears. Each entity has a type, the matched value and a fixed pattern-based confidence. It does not extract drug names or HCPCS codes, and it does not infer or suggest codes (use code_suggest for that). PHI-free: send de-identified text only.',
     price: '$0.02',
     endpoint: '/agent/v1/ner/extract',
     annotations: PAID_LOOKUP,
     schema: {
       text: z.string().max(MAX_CLINICAL_TEXT).describe('Clinical text to extract entities from'),
-      entityTypes: z.array(z.string().max(30)).max(10).optional().describe('Filter to specific entity types'),
+      entityTypes: z.array(z.string().max(30)).max(10).optional().describe('Return only these entity types: ICD10_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR (any letter case; default all). Any other type is refused, and refunded.'),
     },
   },
 
@@ -339,11 +339,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Drug Intelligence (OpenFDA — free, no license) ---
+  // --- Drug Intelligence (openFDA) ---
   {
     name: 'drug_lookup',
     title: 'Drug label and adverse-event lookup (OpenFDA)',
-    description: 'Look up drug information including label data, adverse events, and related diagnosis codes. Source: OpenFDA (public domain).',
+    description: 'Look up drug information including label data, adverse events, and related diagnosis codes. Source: openFDA (FDA drug labels and adverse-event reports); related diagnosis codes come from the MyMedi-AI code database.',
     price: '$0.01',
     endpoint: '/agent/v1/drugs/lookup',
     annotations: PAID_OPEN_WORLD,
@@ -355,7 +355,7 @@ export const MCP_TOOLS = [
   {
     name: 'drug_interactions',
     title: 'Drug-drug interaction signals (FDA FAERS)',
-    description: 'Check drug-drug interaction signals from FDA adverse event co-reports. Returns co-reported reactions and signal strength. Source: OpenFDA FAERS (public domain).',
+    description: 'Check drug-drug interaction signals from FDA adverse event co-reports. Returns co-reported reactions and signal strength. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
     price: '$0.03',
     endpoint: '/agent/v1/drugs/interactions',
     annotations: PAID_OPEN_WORLD,
@@ -364,11 +364,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Reimbursement Rates (CMS PFS — public domain) ---
+  // --- Reimbursement Rates (CMS PFS) ---
   {
     name: 'code_reimbursement',
     title: 'Medicare reimbursement rates (CMS PFS + OPPS)',
-    description: 'Look up Medicare reimbursement rates for a medical code. Returns RVU values and estimated payment amounts using the PFS conversion factor. Source: the current Medicare PFS (CMS RVU files, public domain).',
+    description: 'Look up Medicare reimbursement rates for a medical code. Returns RVU values and estimated payment amounts using the PFS conversion factor. Source: the current Medicare PFS (CMS RVU files).',
     price: '$0.01',
     endpoint: '/agent/v1/codes/reimbursement',
     annotations: PAID_LOOKUP,
@@ -391,11 +391,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Clinical Trials (ClinicalTrials.gov — free, no license) ---
+  // --- Clinical Trials (ClinicalTrials.gov) ---
   {
     name: 'trials_search',
     title: 'Clinical trials search (ClinicalTrials.gov)',
-    description: 'Search active clinical trials by condition, ICD-10 code, or intervention. Returns trial details including NCT ID, phase, enrollment, and eligibility. Source: ClinicalTrials.gov (public domain).',
+    description: 'Search active clinical trials by condition, ICD-10 code, or intervention. Returns trial details including NCT ID, phase, enrollment, and eligibility. Source: ClinicalTrials.gov.',
     price: '$0.03',
     endpoint: '/agent/v1/trials/search',
     annotations: PAID_OPEN_WORLD,
@@ -412,7 +412,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_crossref',
     title: 'Medical code cross-reference (ICD-10 / CPT / HCPCS)',
-    description: 'Cross-reference a medical code across ICD-10, CPT, and HCPCS systems. Returns related codes grouped by system. Source: CodeReference DB (ICD-10/HCPCS: public domain).',
+    description: 'Cross-reference a medical code across ICD-10, CPT, and HCPCS systems. Returns related codes grouped by system. Source: the MyMedi-AI code database (ICD-10-CM, CPT and HCPCS Level II code sets).',
     price: '$0.02',
     endpoint: '/agent/v1/codes/crossref',
     annotations: PAID_LOOKUP,
@@ -421,11 +421,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- RxNorm Drug Lookup (NIH — free, no license) ---
+  // --- RxNorm Drug Lookup (NLM RxNav) ---
   {
     name: 'drug_rxnorm',
     title: 'RxNorm drug normalization (NIH)',
-    description: 'Normalize a drug name with NIH RxNorm: returns the matching RxNorm concepts (RxCUI, name, synonym, term type) and the primary RxCUI. It does not check interactions — use drug_interactions for drug-drug interaction signals. Source: NIH RxNorm (public domain).',
+    description: 'Normalize a drug name with NIH RxNorm: returns the matching RxNorm concepts (RxCUI, name, synonym, term type) and the primary RxCUI. It does not check interactions — use drug_interactions for drug-drug interaction signals. Source: RxNorm, from the U.S. National Library of Medicine (RxNav API).',
     price: '$0.02',
     endpoint: '/agent/v1/drugs/rxnorm',
     annotations: PAID_OPEN_WORLD,
@@ -435,11 +435,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Physician Payments (CMS Open Payments — free, no license) ---
+  // --- Physician Payments (CMS Open Payments) ---
   {
     name: 'provider_payments',
     title: 'Physician industry payments (CMS Open Payments)',
-    description: 'Look up pharmaceutical and device company payments to a physician (Sunshine Act data). Returns total payments, breakdown by type, and top paying companies. Source: CMS Open Payments (public domain).',
+    description: 'Look up pharmaceutical and device company payments to a physician (Sunshine Act data). Returns total payments, breakdown by type, and top paying companies. Source: CMS Open Payments.',
     price: '$0.02',
     endpoint: '/agent/v1/providers/payments',
     annotations: PAID_OPEN_WORLD,
@@ -448,11 +448,11 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Disease Surveillance (CDC NNDSS — free, no license) ---
+  // --- Disease Surveillance (CDC NNDSS) ---
   {
     name: 'disease_surveillance',
     title: 'Disease surveillance case counts (CDC NNDSS)',
-    description: 'Look up disease surveillance data including case counts and trends by condition and geography. Source: CDC National Notifiable Diseases Surveillance System (public domain).',
+    description: 'Look up disease surveillance data including case counts and trends by condition and geography. Source: CDC National Notifiable Diseases Surveillance System (NNDSS) weekly data on data.cdc.gov.',
     price: '$0.02',
     endpoint: '/agent/v1/surveillance/disease',
     annotations: PAID_OPEN_WORLD,
@@ -494,14 +494,14 @@ export const MCP_TOOLS = [
   },
   {
     name: 'drug_enrich',
-    title: 'AI-enriched drug intelligence (OpenFDA)',
-    description: 'Drug information enrichment via OpenFDA. Returns drug details, indications, interactions, and AI analysis.',
+    title: 'Drug label data with an LLM summary (openFDA)',
+    description: 'Look up a drug by brand or generic name in openFDA and return its first matching FDA label: brand and generic name, manufacturer, NDCs, route, substance, product type, and the label\'s indications, warnings, dosage and administration, adverse reactions and drug-interactions sections (null when the label has no such section). Adds an LLM-generated summary, labelled as such: therapeutic class, common uses, alternative therapies and clinical notes. It does not check interactions between drugs — use drug_interactions for that — and makes no prior-authorization, coverage or cost determination. A failed call (drug not found, openFDA or the model unavailable) is refunded.',
     price: '$0.03',
     endpoint: '/agent/v1/drugs/enrich',
     annotations: PAID_OPEN_WORLD,
     schema: {
       drugName: text().describe('Drug name (brand or generic, min 2 chars)'),
-      searchField: anyCaseEnum(['brand_name', 'generic_name']).optional().describe('Search by brand or generic name'),
+      searchField: anyCaseEnum(['brand_name', 'generic_name']).optional().describe('Match the name against the label\'s brand name or generic name (default: brand_name)'),
     },
   },
   {

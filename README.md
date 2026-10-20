@@ -56,7 +56,7 @@ Install the server without `MCP_API_KEY` and these work immediately (60 requests
 | `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior authorization (42 CFR 410.38) |
 | `modifier_advisor` | DMEPOS billing-modifier guidance — KX/GA/GY/GZ, RR/NU/UE, capped-rental months, laterality |
 
-The other 26 tools need an API key (or the connector sign-in): 24 are paid per call, and `account_status` and `buy_credits` are free but need the key to identify the account.
+The other 26 tools need an API key (or the connector sign-in): 24 are paid — per call, or per code for `code_lookup_batch`, `code_validate_batch` and `pa_exposure_report` — and `account_status` and `buy_credits` are free but need the key to identify the account.
 
 ## Client setup
 
@@ -150,11 +150,11 @@ claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp
 ### Prior auth and claims
 | Tool | Description | Price |
 |------|-------------|-------|
-| `pa_predict` | Prior-auth approval rate from a real cohort of decided PAs, else the CMS list facts — never a made-up probability | $0.05 |
+| `pa_predict` | Prior-auth approval rate from your organization's own decided PAs (10 or more), else the CMS list facts, refunded — never a made-up probability | $0.05 |
 | `pa_status` | Status of a PA tracked in your MyMedi-AI web workspace (does not query payers) | $0.02 |
 | `pa_exposure_report` | Map up to 100 HCPCS codes against the CMS PA and F2F/WOPD lists on a date of service, with documentation gates and denial-risk flags; pass a state for items phased in by state | $0.01/code |
 | `claims_validate` | Pre-submission check of a claim's codes and date of service; does not assess medical necessity or prior authorization | $0.05 |
-| `ner_extract` | Codes, dates and drug names already present in de-identified text (pattern extraction) | $0.02 |
+| `ner_extract` | ICD-10-style codes, five-digit CPT candidates, M/D/Y dates and a dose-unit flag found in de-identified text (pattern matching; no drug names) | $0.02 |
 | `compliance_audit` | Pattern scan of a text payload for SSN, MRN and date-of-birth formats — screening, not a compliance audit | $0.25 |
 
 ### Drug data
@@ -163,7 +163,7 @@ claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp
 | `drug_lookup` | OpenFDA drug label and adverse-event data | $0.01 |
 | `drug_interactions` | Drug-drug signals from FDA adverse-event co-reports (FAERS) | $0.03 |
 | `drug_rxnorm` | Normalize a drug name with NIH RxNorm (RxCUI, term type) | $0.02 |
-| `drug_enrich` | OpenFDA drug data plus an LLM-generated summary | $0.03 |
+| `drug_enrich` | First matching openFDA drug label plus a labelled LLM summary (class, uses, alternatives); no interaction check and no prior-auth, coverage or cost determination | $0.03 |
 
 ### Providers and market
 | Tool | Description | Price |
@@ -247,6 +247,10 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
 
+## Changes in 1.7.7
+
+No configuration changes. Tool descriptions now match what the API returns: `drug_enrich` lists the label fields and the labelled LLM summary it returns, and says a failed call is refunded (the API no longer returns a model-made prior-auth likelihood or cost tier); `pa_predict` says its approval rate comes only from your organization's own decided prior authorizations and that `payerId` is a payer category; `ner_extract` names the patterns it matches (it extracts no drug names), and its `entityTypes` filter now applies; `code_suggest` takes up to 500 characters (the search never read more; longer text is now refused instead of silently cut); data sources are named without licence claims. The support address is info@mymedi-ai.com.
+
 ## Upgrading to 1.7.6
 
 **Breaking for remote `--http` deployments only.** Up to 1.7.5 the HTTP mode listened on every interface, served any caller without a token and sent `Access-Control-Allow-Origin: *`. From 1.7.6 it listens on 127.0.0.1; to serve other machines set `MCP_HOST`, `MCP_HTTP_TOKEN` (required off loopback) and `MCP_ALLOWED_HOSTS` with every hostname or address clients use (with `MCP_HOST=0.0.0.0` that includes LAN and Docker-host IPs); browser-based clients also need `MCP_ALLOWED_ORIGINS`. An unknown session id now gets 404 instead of 400. stdio installs (Claude Desktop, Cursor, VS Code, Claude Code) are unaffected.
@@ -286,7 +290,7 @@ const result = await client.codeLookup('M79.3');
 - **`--http` answers 401, 403 or refuses to start** — see [HTTP mode](#http-mode---http): send the bearer token, add the hostname to `MCP_ALLOWED_HOSTS` or the web origin to `MCP_ALLOWED_ORIGINS`, and set `MCP_HTTP_TOKEN` before listening off loopback.
 - **Code not found** — lookups expect bare codes (`E1390`, `99213`, `M79.3`). Denial codes accept `CO-50`, `co50` or `50`.
 - **Data currency** — reference data follows CMS release cycles; prior-authorization and F2F/WOPD answers carry the list version they were checked against.
-- **Still stuck?** Email support@mymedi-ai.com or open an issue at https://github.com/MyMedi-AI/mymedi-ai-mcp-server/issues.
+- **Still stuck?** Email info@mymedi-ai.com or open an issue at https://github.com/MyMedi-AI/mymedi-ai-mcp-server/issues.
 
 ## Links
 
