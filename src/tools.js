@@ -204,7 +204,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_suggest',
     title: 'Medical code suggestions from clinical text',
-    description: 'Suggest ICD-10/CPT/HCPCS codes from a clinical description. Term-based search over the 90K-code CMS database, ranked by matched-term coverage and relevance. Works with natural sentences ("patient with obstructive sleep apnea prescribed CPAP"): up to 500 characters, of which up to 10 distinct terms are searched, common words left out. Automatically refunds the call when nothing matches.',
+    description: 'Suggest ICD-10-CM, CPT and HCPCS Level II codes from a clinical or equipment description — a term search over the 90K-code CMS database, no language model. Works with natural sentences ("patient with obstructive sleep apnea prescribed CPAP" lists G47.33 and E0601 first), common abbreviations and alternate forms (CPAP, OSA, COPD, IG for immune globulin, type 2), and a typed side, sex or "without". Ranked by relevance (relevanceScore 0-1: how much of the description a code matches, and how closely), with two exceptions: the best code for each separate thing a description names (a diagnosis and a device) comes first, so the list is grouped rather than strictly sorted by relevanceScore; and a bare common condition ("hypertension") lists its ICD-10-CM default code first. Weak matches are left out rather than listed. Up to 500 characters, of which up to 10 distinct terms are searched, common words left out. Automatically refunds the call when nothing matches.',
     price: '$0.01',
     endpoint: '/agent/v1/codes/suggest',
     annotations: PAID_LOOKUP,
@@ -217,15 +217,18 @@ export const MCP_TOOLS = [
   {
     name: 'code_validate',
     title: 'Medical code validation',
-    description: 'Validate a medical code for correctness, active status, and context. Returns warnings and errors.',
+    description: 'Check that an ICD-10-CM, CPT or HCPCS Level II code exists and is valid on a date of service: termination and effective dates are applied, so a code deleted after that date still validates. dateOfService is YYYY-MM-DD (default today); asOf in the result is the date the code was judged for. Returns valid, active, warnings and errors.',
     price: '$0.005',
     endpoint: '/agent/v1/codes/validate',
     annotations: PAID_LOOKUP,
     schema: {
       code: text().describe('Medical code to validate'),
       codeType: anyCaseEnum(['icd10', 'cpt', 'hcpcs']).optional(),
+      dateOfService: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Date of service, YYYY-MM-DD (default today)'),
+      date_of_service: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService (snake_case spelling)'),
       context: z.object({
-        dateOfService: text().optional().describe('Date of service (YYYY-MM-DD) for temporal validation'),
+        dateOfService: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService; if both are sent they must match'),
+        date_of_service: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService (snake_case spelling)'),
       }).optional(),
     },
   },
@@ -233,15 +236,18 @@ export const MCP_TOOLS = [
   {
     name: 'code_validate_batch',
     title: 'Batch medical code validation (up to 25 codes)',
-    description: 'Validate a list of medical codes for correctness, active status, and optional date-of-service context in one call. Per-item results mirror code_validate (valid, active, warnings, errors, codeDetails). Priced per code — $0.005 × number of codes, max 25 per call. An invalid code is a billable answer (valid:false), same as the single validate.',
+    description: 'Validate up to 25 medical codes in one call, each judged as code_validate judges one: exists, and is valid on the date of service (dateOfService, YYYY-MM-DD, applied to every code; default today). Per-item results mirror code_validate (valid, active, asOf, warnings, errors, codeDetails). Priced per code — $0.005 × number of codes, max 25 per call. An invalid code is a billable answer (valid:false), same as the single validate.',
     price: '$0.005',
     endpoint: '/agent/v1/codes/validate-batch',
     annotations: PAID_LOOKUP,
     schema: {
       codes: z.array(text()).min(1).max(25).describe('Medical codes to validate (1-25 per call)'),
       codeType: anyCaseEnum(['icd10', 'cpt', 'hcpcs']).optional().describe('Code system applied to every code'),
+      dateOfService: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Date of service, YYYY-MM-DD, applied to every code (default today)'),
+      date_of_service: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService (snake_case spelling)'),
       context: z.object({
-        dateOfService: text().optional().describe('Date of service (YYYY-MM-DD) for temporal validation, applied to every code'),
+        dateOfService: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService; if both are sent they must match'),
+        date_of_service: z.string().max(10).regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Same as dateOfService (snake_case spelling)'),
       }).optional(),
     },
   },
@@ -289,14 +295,14 @@ export const MCP_TOOLS = [
   // --- NLP ---
   {
     name: 'ner_extract',
-    title: 'Pattern extraction of codes and dates from clinical text',
-    description: 'Pattern-match codes and dates already present in de-identified text: ICD-10-style codes (an uppercase letter, two digits and an optional decimal part of up to four digits), any five-digit number as a CPT candidate (ZIP codes match too), M/D/Y dates, and one MEDICATION_INDICATOR entity when a dose unit (mg, mcg or mL) appears. Each entity has a type, the matched value and a fixed pattern-based confidence. It does not extract drug names or HCPCS codes, and it does not infer or suggest codes (use code_suggest for that). PHI-free: send de-identified text only.',
+    title: 'Extract ICD-10-CM, HCPCS and CPT codes and dates from clinical text',
+    description: 'Extract the medical codes already present in de-identified text and check each against the MyMedi-AI code database: ICD-10-CM codes whole, dotted or undotted, with their 7th-character extensions (S72.001A, S72001A); HCPCS Level II codes (a letter A–V and four digits), with modifiers attached (E0601RR, E0601-RR) reported as modifiers — a glued suffix only when it is a known DMEPOS modifier; and CPT codes only where a keyword such as CPT or procedure code marks them (Category II and III and PLA codes such as 0001U included), so ZIP codes and other numbers are not read as codes, and a five-digit number that continues a marked list is kept only when the CPT set holds it. Codes are read in upper case, as code sets print them; lower-case text is not read as a code. Each code entity says whether the code set holds it (inCodeSet) and, when it does, gives its description and whether it is active; an undotted ICD-10-CM shape is returned only when the code set holds it, so words such as B12 are not read as codes. codeSets names the code-set releases checked. Also returns M/D/Y dates and one MEDICATION_INDICATOR entity when a dose unit (mg, mcg or mL) appears. It does not extract drug names and does not infer or suggest codes (use code_suggest for that). PHI-free: send de-identified text only.',
     price: '$0.02',
     endpoint: '/agent/v1/ner/extract',
     annotations: PAID_LOOKUP,
     schema: {
       text: z.string().max(MAX_CLINICAL_TEXT).describe('Clinical text to extract entities from'),
-      entityTypes: z.array(z.string().max(30)).max(10).optional().describe('Return only these entity types: ICD10_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR (any letter case; default all). Any other type is refused, and refunded.'),
+      entityTypes: z.array(z.string().max(30)).max(10).optional().describe('Return only these entity types: ICD10_CODE, HCPCS_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR (any letter case; default all). Any other type is refused, and refunded.'),
     },
   },
 
@@ -304,7 +310,7 @@ export const MCP_TOOLS = [
   {
     name: 'claims_validate',
     title: 'Pre-submission claim code and date check',
-    description: 'Pre-submission check of a claim\'s codes and dates — no patient or provider identifiers needed or accepted. Checks that the diagnosis (ICD-10) and procedure (CPT/HCPCS) codes exist and are active, that modifiers are well-formed, and that the date of service is not in the future; returns whether the claim passed, with the errors and warnings found. Up to 25 diagnosis codes, 50 procedure codes and 20 modifiers per claim. It does not assess medical necessity or prior authorization — use pa_required_check or order_readiness_checklist for those requirements.',
+    description: 'Pre-submission check of a claim\'s codes and dates — no patient or provider identifiers needed or accepted. Checks that the diagnosis (ICD-10-CM) and procedure (CPT/HCPCS Level II) codes exist and are active on the date of service, that modifiers are well-formed, and that the date of service is not in the future; returns whether the claim passed, with the errors and warnings found. A CPT code missing from the loaded CMS fee schedule file, or a modifier this reference does not list for DMEPOS, is a warning, not an error. Up to 25 diagnosis codes, 50 procedure codes and 20 modifiers per claim. It applies no NCCI edits — neither procedure-to-procedure (PTP) pairs nor MUE unit limits — and does not assess medical necessity or prior authorization: use pa_required_check or order_readiness_checklist for those requirements.',
     price: '$0.05',
     endpoint: '/agent/v1/claims/validate',
     annotations: PAID_LOOKUP,
@@ -324,18 +330,32 @@ export const MCP_TOOLS = [
   // --- Compliance ---
   {
     name: 'compliance_audit',
-    title: 'PHI-exposure compliance scan',
-    description: 'PHI exposure scan for a text payload before it leaves your system: pattern checks for SSN, MRN and date-of-birth formats, with findings by severity, a 0-100 score and remediation notes. Pattern-based screening, not a compliance audit. Payload up to 20,000 characters. Costs 250 credits — run it on a sample, not on every record.',
+    title: 'DMEPOS order documentation audit (SWO, F2F/WOPD, prior auth)',
+    description: 'Audit one DMEPOS order\'s documentation against the Original Medicare requirements that apply to its HCPCS code on the date of service: the standard written order (SWO) elements (42 CFR 410.38(d)(1)(i)); for items on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List, a face-to-face encounter within the 6 months before the order and the written order before delivery, otherwise the written order before the claim; and for items on the current CMS Required Prior Authorization List, an affirmed decision before delivery. Some items are phased in by state: without a state such an order is refused (refunded) unless an affirmed decision is reported. A code the HCPCS set does not hold, one not valid on the date of service, or one the CMS DMEPOS Jurisdiction List bills to the A/B MAC (Part B) rather than a DME MAC, or a discontinued code that list does not show, is refused (refunded); for a code under joint jurisdiction the answer gives CMS\'s wording of when the A/B MAC takes it. Report each fact as true/false — never names, identifiers, signatures or other values. Each requirement comes back pass or fail with its citation; a fact not reported fails, and any failed requirement fails the order (result: fail). It checks the facts reported, not the documents themselves. Not checked: LCD coverage criteria and medical-necessity documentation, proof of delivery and billing modifiers. Costs 250 credits per call.',
     price: '$0.25',
     endpoint: '/agent/v1/compliance/audit',
     annotations: PAID_LOOKUP,
     schema: {
-      // A record cannot carry a size in JSON Schema; the refinement caps its
-      // serialized length (the hosted copy's serializedLimits).
-      data: z.record(z.unknown())
-        .refine((v) => JSON.stringify(v).length <= MAX_CLINICAL_TEXT, `data must serialize to at most ${MAX_CLINICAL_TEXT} characters`)
-        .describe('Data to audit for compliance issues'),
-      auditType: anyCaseEnum(['general', 'hipaa']).optional().describe('Type of audit (default: general)'),
+      // PHI-free: the order is described by yes/no facts. No identifier field
+      // is declared, so zod strips any a caller sends.
+      data: z.object({
+        code: text().describe('HCPCS Level II code of the ordered item (e.g., "K0823")'),
+        dateOfService: z.string().max(MAX_DATE).describe('Date of service (for DME, the delivery date), YYYY-MM-DD'),
+        state: phasedState(),
+        swo: z.object({
+          beneficiaryName: z.boolean().optional().describe('Beneficiary name or Medicare Beneficiary Identifier (MBI)'),
+          itemDescription: z.boolean().optional().describe('General description of the item'),
+          quantity: z.boolean().optional().describe('Quantity to be dispensed, if applicable'),
+          orderDate: z.boolean().optional().describe('Order date'),
+          practitionerName: z.boolean().optional().describe('Treating practitioner name or NPI'),
+          practitionerSignature: z.boolean().optional().describe('Treating practitioner signature'),
+        }).optional().describe('Standard written order elements: true when on the order (quantity: also when none applies), false when missing — never the values'),
+        faceToFaceWithin6Months: z.boolean().optional().describe('F2F/WOPD items: a face-to-face encounter with the treating practitioner within the 6 months before the order date'),
+        orderBeforeDelivery: z.boolean().optional().describe('F2F/WOPD items: the written order reached the supplier before delivery'),
+        orderBeforeClaim: z.boolean().optional().describe('Other items: the written order reached the supplier before the claim is submitted'),
+        priorAuthorization: anyCaseEnum(['affirmed', 'non_affirmed', 'pending', 'not_requested']).optional().describe('Prior-authorization items: "affirmed" when an affirmed decision was received before delivery'),
+      }).describe('The order: its HCPCS code, date of service and state, and true/false facts about its documentation'),
+      auditType: anyCaseEnum(['dme_order']).optional().describe('Optional: "dme_order", the only audit (the default)'),
     },
   },
 
@@ -354,13 +374,13 @@ export const MCP_TOOLS = [
   },
   {
     name: 'drug_interactions',
-    title: 'Drug-drug interaction signals (FDA FAERS)',
-    description: 'Check drug-drug interaction signals from FDA adverse event co-reports. Returns co-reported reactions and signal strength. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
+    title: 'Drug-combination adverse-event disproportionality (FDA FAERS)',
+    description: 'Adverse event reports that name drugs together: coReportCount, the number of FAERS reports naming every listed drug; the reactions most often named in them; and for each reaction a proportional reporting ratio (PRR) with a 95% confidence interval against the reports of each drug without the others. A reaction is marked disproportionate when it has at least 3 co-reports and the lower bound exceeds 1 against every drug (null when a comparison cannot be computed). Drugs are matched by the product name as reported: a brand name such as Coumadin is not merged with its generic, warfarin. A name no FAERS report names is refused (refunded), naming it. FAERS reports are unverified and can be duplicated: report counts and disproportionality are statistical associations, not evidence of an interaction or of causation — confirm with a clinical drug-interaction reference. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
     price: '$0.03',
     endpoint: '/agent/v1/drugs/interactions',
     annotations: PAID_OPEN_WORLD,
     schema: {
-      drugs: z.array(text()).min(2).max(5).describe('Array of 2-5 drug names to check for interactions'),
+      drugs: z.array(text()).min(2).max(5).describe('Array of 2-5 different drug names (brand or generic), each matched against the product name reported in FAERS. Drug names need at least two letters or digits and may otherwise hold only spaces, hyphens, apostrophes, periods, slashes, parentheses and commas; accents, curly apostrophes, ® and ™, "+" and "&", and strengths such as 0.5% or 1:100,000 are normalized first (a refused name is refunded)'),
     },
   },
 
@@ -412,7 +432,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_crossref',
     title: 'Medical code cross-reference (ICD-10 / CPT / HCPCS)',
-    description: 'Cross-reference a medical code across ICD-10, CPT, and HCPCS systems. Returns related codes grouped by system. Source: the MyMedi-AI code database (ICD-10-CM, CPT and HCPCS Level II code sets).',
+    description: 'Related codes for an ICD-10-CM, CPT or HCPCS Level II code, across the three code systems. linkedCodes are curated: the DME code family (base item, accessories and supplies) and links across code systems that cite their CMS source — obstructive sleep apnea (G47.33) with the PAP devices CMS LCD L33718 covers and the sleep tests NCD 240.4.1 covers. crossReferences are other active codes whose descriptions best match this one, grouped by code system (up to 5 each) with a relevanceScore (0-1); weaker matches are left out, so a group can be empty, and a code with no related codes at all is refunded. Source: the MyMedi-AI code database (ICD-10-CM, CPT and HCPCS Level II code sets).',
     price: '$0.02',
     endpoint: '/agent/v1/codes/crossref',
     annotations: PAID_LOOKUP,

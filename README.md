@@ -8,7 +8,7 @@ MCP server for DME billing and medical coding. Connect Claude, Cursor, VS Code o
 
 PHI-free by design: the tools take codes, modifiers, dates of service and de-identified text, never patient identifiers. Apart from drawing credits for paid calls, no tool changes anything except `buy_credits`, which opens a Stripe checkout session (nothing is charged until checkout is completed in the browser).
 
-**Claude (web or desktop) users:** Settings → Connectors → **Add custom connector** → paste `https://mymedi-ai.com/mcp-stream`. The endpoint is OAuth-protected: Claude registers itself and asks you to sign in to MyMedi-AI once, and the first connector sign-in comes with free starter credits. There is no API key to copy.
+**Claude (web or desktop) users:** on Free, Pro and Max plans, open Customize → Connectors → **+ Add** → **Add custom connector**, give it a name and the URL `https://mymedi-ai.com/mcp-stream`, then **Add** → **Connect**. On Team and Enterprise plans an Owner adds it once under Organization settings → Connectors → **Add** → **Custom** → **Web**, and members then **Connect** it from Customize → Connectors. The endpoint is OAuth-protected: Claude registers itself and asks you to sign in to MyMedi-AI once, and the first connector sign-in comes with free starter credits. There is no API key to copy.
 
 ## Quick Start
 
@@ -154,14 +154,14 @@ claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp
 | `pa_status` | Status of a PA tracked in your MyMedi-AI web workspace (does not query payers) | $0.02 |
 | `pa_exposure_report` | Map up to 100 HCPCS codes against the CMS PA and F2F/WOPD lists on a date of service, with documentation gates and denial-risk flags; pass a state for items phased in by state | $0.01/code |
 | `claims_validate` | Pre-submission check of a claim's codes and date of service; does not assess medical necessity or prior authorization | $0.05 |
-| `ner_extract` | ICD-10-style codes, five-digit CPT candidates, M/D/Y dates and a dose-unit flag found in de-identified text (pattern matching; no drug names) | $0.02 |
-| `compliance_audit` | Pattern scan of a text payload for SSN, MRN and date-of-birth formats — screening, not a compliance audit | $0.25 |
+| `ner_extract` | ICD-10-CM, HCPCS Level II (with modifiers) and keyword-marked CPT codes found in de-identified text, each checked against the code sets, plus M/D/Y dates and a dose-unit flag; no drug names | $0.02 |
+| `compliance_audit` | Audit of one DMEPOS order's documentation (SWO elements, F2F/WOPD, prior authorization) for its HCPCS code and date of service, from true/false facts — never identifiers; pass or fail per requirement with its citation, and a result that fails when any requirement fails | $0.25 |
 
 ### Drug data
 | Tool | Description | Price |
 |------|-------------|-------|
 | `drug_lookup` | OpenFDA drug label and adverse-event data | $0.01 |
-| `drug_interactions` | Drug-drug signals from FDA adverse-event co-reports (FAERS) | $0.03 |
+| `drug_interactions` | FAERS reports naming the drugs together, with a proportional reporting ratio (PRR) and 95% interval per reaction against each drug alone — statistical associations, not evidence of an interaction | $0.03 |
 | `drug_rxnorm` | Normalize a drug name with NIH RxNorm (RxCUI, term type) | $0.02 |
 | `drug_enrich` | First matching openFDA drug label plus a labelled LLM summary (class, uses, alternatives); no interaction check and no prior-auth, coverage or cost determination | $0.03 |
 
@@ -246,6 +246,14 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 ```
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
+
+## Changes in 1.7.8
+
+No configuration changes, but update to use `compliance_audit`: it now takes an order, and the API refuses the free-form payload that 1.7.7 and earlier send (a 400, at no cost).
+
+Three paid tools now do what their descriptions say. `compliance_audit` audits one DMEPOS order's documentation — the standard written order elements, the face-to-face encounter and written order before delivery, and prior authorization — for the order's HCPCS code and date of service (now required), from true/false facts that never carry identifiers; each requirement comes back pass or fail with its citation, and the result fails when one does. It no longer runs the identifier pattern checks it used to; `auditType` is optional and takes only `dme_order`. `drug_interactions` returns the number of FAERS reports naming the drugs together and, for each reaction, a proportional reporting ratio with a 95% interval against each drug alone, in place of a grade by report volume; drug names are normalized to what openFDA can search (accents, curly apostrophes, ® and ™, "+" and "&", and strengths such as 0.5% or 1:100,000), and a name with fewer than two letters or digits, or with quotes or other symbols, is refused. `ner_extract` reads whole ICD-10-CM codes (with extensions), HCPCS Level II codes with their modifiers, and CPT codes only where a keyword marks them, each checked against the code sets; `entityTypes` adds `HCPCS_CODE`.
+
+The code tools rank and date their answers. `code_suggest` ranks by relevance: it reads common abbreviations and alternate forms (CPAP, OSA, COPD, IG for immune globulin, type 2) and a typed side, sex or "without", lists the best code for each separate thing a description names first, and leaves weak matches out instead of padding the list. `code_crossref` returns curated `linkedCodes` (the DME code family, and links across code systems that cite their CMS source) and `crossReferences` ranked by `relevanceScore`, weak matches left out; an answer with no related codes is refunded. `code_validate` and `code_validate_batch` take `dateOfService` (or `date_of_service`) at the top level as well as in `context`, refuse a date that is not YYYY-MM-DD or two dates that differ, and report `asOf`, the date a code was judged for. `claims_validate` states what it checks — codes active on the date of service, well-formed modifiers, a date not in the future — and that it applies no NCCI edits.
 
 ## Changes in 1.7.7
 

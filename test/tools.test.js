@@ -75,11 +75,14 @@ describe('tool descriptions say only what the tools return', () => {
     assert.match(description, /A failed call \(drug not found, openFDA or the model unavailable\) is refunded/);
   });
 
-  it('ner_extract: should describe the patterns it matches, with no HCPCS codes, drug names or spans', () => {
+  it('ner_extract: should describe whole ICD-10-CM, HCPCS and keyword-marked CPT codes, with no drug names or spans', () => {
     const { title, description, schema } = getToolByName('ner_extract');
-    assert.doesNotMatch(`${title}\n${description}`, /and HCPCS codes|medication names|span/i);
-    assert.match(description, /does not extract drug names or HCPCS codes/);
-    assert.match(schema.entityTypes.description, /ICD10_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR/);
+    assert.doesNotMatch(`${title}\n${description}`, /medication names|span/i);
+    assert.match(description, /ICD-10-CM codes whole, dotted or undotted, with their 7th-character extensions/);
+    assert.match(description, /HCPCS Level II codes/);
+    assert.match(description, /CPT codes only where a keyword such as CPT or procedure code marks them/);
+    assert.match(description, /does not extract drug names/);
+    assert.match(schema.entityTypes.description, /ICD10_CODE, HCPCS_CODE, CPT_CODE, DATE, MEDICATION_INDICATOR/);
   });
 
   it('pa_predict: should say the approval cohort is the caller organization\'s own decided PAs', () => {

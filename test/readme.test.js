@@ -117,7 +117,10 @@ describe('README: claims the product does not make', () => {
     ['"everything is read-only" (buy_credits opens a checkout)', /everything is read-only|all (the )?tools are read-only/i],
     ['CPT as public domain (it is AMA copyright)', /CPT[^.\n]*public domain|public domain[^.\n]*CPT/i],
     ['a public-domain claim about any data source (RxNorm, for one, comes under NLM terms)', /public domain/i],
-    ['drug names, HCPCS codes or spans from ner_extract (it pattern-matches codes, dates and a dose unit)', /`ner_extract`[^\n]*((?<!no )drug names|medication names|HCPCS|span)/i],
+    ['drug names or spans from ner_extract (it extracts codes, dates and a dose unit)', /`ner_extract`[^\n]*((?<!no )drug names|medication names|span)/i],
+    ['an identifier scan or a score from compliance_audit (it audits one DMEPOS order)', /`compliance_audit`[^\n]*(SSN|MRN|date-of-birth|score)/i],
+    ['a signal strength from drug_interactions', /`drug_interactions`[^\n]*signal/i],
+    ['the retired Claude setup path (Settings → Connectors)', /Settings → Connectors/],
     ['"no account needed" for the OAuth connector', /no account needed/i],
     ['the JSON price list as a Stripe or top-up page', /(Stripe|top[- ]?up)[\s\S]{0,80}credits\/pricing|credits\/pricing[\s\S]{0,80}(Stripe|top[- ]?up)/i],
     ['a browsable link to the POST-only register endpoint', /\]\(https:\/\/mymedi-ai\.com\/bot-marketplace\/register\)/],
@@ -194,5 +197,43 @@ describe('README: claims the product does not make', () => {
 
   it('should note that CPT is AMA copyright', () => {
     assert.match(README, /CPT® is a registered trademark of the American Medical Association/);
+  });
+});
+
+describe('README: the clinical tools and the Claude setup path', () => {
+  const row = (tool) => README.split('\n').find((line) => line.startsWith(`| \`${tool}\``)) ?? '';
+
+  it('should describe ner_extract as whole ICD-10-CM, HCPCS and keyword-marked CPT codes checked against the code sets', () => {
+    assert.match(row('ner_extract'), /ICD-10-CM, HCPCS Level II \(with modifiers\) and keyword-marked CPT codes[^|]*checked against the code sets/);
+  });
+
+  it('should describe compliance_audit as a DMEPOS order documentation audit that can fail', () => {
+    assert.match(row('compliance_audit'), /one DMEPOS order's documentation[^|]*fails when any requirement fails/);
+  });
+
+  it('should describe drug_interactions as co-report counts with a PRR per reaction', () => {
+    assert.match(row('drug_interactions'), /proportional reporting ratio \(PRR\)[^|]*not evidence of an interaction/);
+  });
+
+  it('should give the current Claude connector paths for individual and organization plans', () => {
+    assert.match(README, /Customize → Connectors → \*\*\+ Add\*\* → \*\*Add custom connector\*\*/);
+    assert.match(README, /Organization settings → Connectors → \*\*Add\*\* → \*\*Custom\*\* → \*\*Web\*\*/);
+  });
+
+  it('should note the clinical and code tool changes for 1.7.8', () => {
+    const notes = section('## Changes in 1.7.8');
+    [
+      'compliance_audit', 'drug_interactions', 'ner_extract',
+      'code_suggest', 'code_crossref', 'code_validate', 'code_validate_batch', 'claims_validate',
+    ].forEach((tool) => assert.match(notes, new RegExp(`\`${tool}\``)));
+  });
+
+  it('should take auditType as an optional dme_order, as the 1.7.8 notes say', () => {
+    const { auditType } = getToolByName('compliance_audit').schema;
+    assert.deepEqual(
+      [undefined, 'dme_order', 'general', 'hipaa'].map((value) => auditType.safeParse(value).success),
+      [true, true, false, false],
+    );
+    assert.match(section('## Changes in 1.7.8'), /`auditType` is optional and takes only `dme_order`/);
   });
 });
