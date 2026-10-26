@@ -163,7 +163,7 @@ claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp
 | `drug_lookup` | OpenFDA drug label and adverse-event data | $0.01 |
 | `drug_interactions` | FAERS reports naming the drugs together, with a proportional reporting ratio (PRR) and 95% interval per reaction against each drug alone — statistical associations, not evidence of an interaction | $0.03 |
 | `drug_rxnorm` | Normalize a drug name with NIH RxNorm (RxCUI, term type) | $0.02 |
-| `drug_enrich` | First matching openFDA drug label plus a labelled LLM summary (class, uses, alternatives); no interaction check and no prior-auth, coverage or cost determination | $0.03 |
+| `drug_enrich` | First matching openFDA drug label plus a labelled LLM summary (class and the indications the label states); no treatment advice, no interaction check and no prior-auth, coverage or cost determination | $0.03 |
 
 ### Providers and market
 | Tool | Description | Price |
@@ -246,6 +246,10 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 ```
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
+
+## Changes in 1.7.9
+
+No configuration changes. Tool descriptions say what each tool returns and when it applies; none instructs the model or names another tool. `drug_enrich` and `pa_predict` describe what the API now returns: the `drug_enrich` summary restates the label (the therapeutic class and the indications it lists) and no longer names alternative therapies or adds clinical notes, so the tool gives no treatment advice; the `pa_predict` recommendation states the CMS requirement, whatever the approval rate. Neither makes a coverage or prior-authorization determination.
 
 ## Changes in 1.7.8
 

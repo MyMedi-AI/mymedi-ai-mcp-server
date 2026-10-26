@@ -236,4 +236,15 @@ describe('README: the clinical tools and the Claude setup path', () => {
     );
     assert.match(section('## Changes in 1.7.8'), /`auditType` is optional and takes only `dme_order`/);
   });
+
+  it('should describe drug_enrich as a label summary without treatment alternatives', () => {
+    assert.match(row('drug_enrich'), /no treatment advice/);
+    assert.doesNotMatch(row('drug_enrich'), /alternative/i);
+  });
+
+  it('should note the drug_enrich and pa_predict changes for 1.7.9', () => {
+    const notes = section('## Changes in 1.7.9');
+    assert.match(notes, /`drug_enrich` summary[^\n]*no treatment advice/);
+    assert.match(notes, /`pa_predict` recommendation states the CMS requirement/);
+  });
 });

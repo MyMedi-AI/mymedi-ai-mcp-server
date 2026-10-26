@@ -120,7 +120,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_lookup_basic',
     title: 'Basic medical code lookup (free)',
-    description: 'Look up basic metadata for a medical code: code, codeType, description, category, isActive. Basic metadata only — the paid code_lookup adds full metadata. Free, no API key required.',
+    description: 'Look up basic metadata for a medical code: code, codeType, description, category, isActive. Basic metadata only. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -146,7 +146,7 @@ export const MCP_TOOLS = [
   {
     name: 'order_readiness_checklist',
     title: 'DMEPOS order-readiness checklist (free)',
-    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Requirement definitions only — PHI-free, never send patient data. Free, no API key required.',
+    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Requirement definitions only; it takes no patient data (PHI-free). Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -161,7 +161,7 @@ export const MCP_TOOLS = [
   {
     name: 'modifier_advisor',
     title: 'DMEPOS billing-modifier advisor (free)',
-    description: 'Editorial guidance on DMEPOS billing modifiers: the KX/GA/GY/GZ medical-necessity and liability family, RR/NU/UE rental-vs-purchase, capped-rental month markers (KH/KI/KJ), and RT/LT laterality. Pass a HCPCS code to scope guidance to that item\'s DMEPOS category, or a category directly; add a scenario phrase (e.g., "ABN on file", "bilateral") to surface the relevant modifiers. Original editorial content, not payer policy. PHI-free. Free, no API key required.',
+    description: 'Editorial guidance on DMEPOS billing modifiers: the KX/GA/GY/GZ medical-necessity and liability family, RR/NU/UE rental-vs-purchase, capped-rental month markers (KH/KI/KJ), and RT/LT laterality. A HCPCS code scopes the guidance to that item\'s DMEPOS category (a category can also be given directly), and a scenario phrase (e.g., "ABN on file", "bilateral") surfaces the relevant modifiers. Original editorial content, not payer policy. PHI-free. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -191,7 +191,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_lookup_batch',
     title: 'Batch medical code lookup (up to 25 codes)',
-    description: 'Look up a list of medical codes (ICD-10, CPT, HCPCS) in one call. Per-item results mirror code_lookup (description, category, active status, related codes, DMEPOS fee schedule with optional state filter). Priced per code — $0.001 × number of codes, max 25 per call; the full charge is refunded automatically when every code misses.',
+    description: 'Look up a list of medical codes (ICD-10, CPT, HCPCS) in one call. Each item returns what a single lookup does (description, category, active status, related codes, DMEPOS fee schedule with optional state filter). Priced per code — $0.001 × number of codes, max 25 per call; the full charge is refunded automatically when every code misses.',
     price: '$0.001',
     endpoint: '/agent/v1/codes/lookup-batch',
     annotations: PAID_LOOKUP,
@@ -236,7 +236,7 @@ export const MCP_TOOLS = [
   {
     name: 'code_validate_batch',
     title: 'Batch medical code validation (up to 25 codes)',
-    description: 'Validate up to 25 medical codes in one call, each judged as code_validate judges one: exists, and is valid on the date of service (dateOfService, YYYY-MM-DD, applied to every code; default today). Per-item results mirror code_validate (valid, active, asOf, warnings, errors, codeDetails). Priced per code — $0.005 × number of codes, max 25 per call. An invalid code is a billable answer (valid:false), same as the single validate.',
+    description: 'Validate up to 25 medical codes in one call, each judged as in a single validation: exists, and is valid on the date of service (dateOfService, YYYY-MM-DD, applied to every code; default today). Each item returns valid, active, asOf, warnings, errors and codeDetails. Priced per code — $0.005 × number of codes, max 25 per call. An invalid code is a billable answer (valid:false).',
     price: '$0.005',
     endpoint: '/agent/v1/codes/validate-batch',
     annotations: PAID_LOOKUP,
@@ -256,7 +256,7 @@ export const MCP_TOOLS = [
   {
     name: 'pa_predict',
     title: 'Prior-auth approval rate + CMS requirement facts',
-    description: 'Prior-authorization outlook for a procedure code. The approval rate is computed only from your organization\'s own decided prior authorizations for that code — never from other customers\' records — and needs at least 10; an API key or account with no organization has no cohort. With a cohort it returns the approval rate with cohort size and confidence. Without one it returns the verifiable facts instead — CMS Required Prior Authorization List status, category, and published review timeframes — and explicitly reports that no probability was computed (the call is refunded on this path). Never fabricates a probability. Original Medicare FFS scope.',
+    description: 'Historical prior-authorization approval rate for a procedure code, computed only from your organization\'s own decided prior authorizations for that code — never from other customers\' records — and only from at least 10; an API key or account with no organization has no cohort. With a cohort it returns the rate with cohort size and confidence; without one it returns the verifiable facts instead — CMS Required Prior Authorization List status, category, and published review timeframes — and reports that no rate was computed (the call is refunded on this path). Either way its recommendation states the CMS requirement only. It reports past decisions and makes no coverage or prior-authorization determination. Original Medicare FFS scope.',
     price: '$0.05',
     endpoint: '/agent/v1/pa/predict',
     annotations: PAID_LOOKUP,
@@ -268,7 +268,7 @@ export const MCP_TOOLS = [
   {
     name: 'pa_status',
     title: 'Prior authorization status check',
-    description: 'Check the status of a prior authorization request tracked in your MyMedi-AI web workspace (by its MyMedi-AI PA id). Returns current status, dates, and expiration info. It does not query payers, and returns not-found (refunded) if the PA was never entered in the web app — for a code\'s PA requirement use the free pa_required_check.',
+    description: 'Check the status of a prior authorization request tracked in your MyMedi-AI web workspace (by its MyMedi-AI PA id). Returns current status, dates, and expiration info. It does not query payers or say whether a code requires prior authorization, and returns not-found (refunded) if the PA was never entered in the web app.',
     price: '$0.02',
     endpoint: '/agent/v1/pa/status',
     annotations: PAID_LOOKUP,
@@ -280,7 +280,7 @@ export const MCP_TOOLS = [
   {
     name: 'pa_exposure_report',
     title: 'PA/WOPD catalog exposure report (up to 100 codes)',
-    description: 'Map a supplier HCPCS catalog against the current CMS Required Prior Authorization List and Required Face-to-Face Encounter & Written Order Prior to Delivery List on a date of service (default today). Per code: PA requirement and the date it applies from, F2F/WOPD requirement, documentation gates (SWO, UTN-before-claim, F2F/WOPD sequencing), and deterministic denial-risk flags — plus a catalog-level exposure summary. Some items are phased in by state: pass a state for a definitive answer; without one they are reported as required in some states (paRequiredInSomeStates). Unknown or non-HCPCS codes are flagged and count as billable answers. Priced per code — $0.01 × number of codes, max 100 per call. Returns JSON. Original Medicare FFS scope. PHI-free: codes in, rules out.',
+    description: 'Map a supplier HCPCS catalog against the current CMS Required Prior Authorization List and Required Face-to-Face Encounter & Written Order Prior to Delivery List on a date of service (default today). Per code: PA requirement and the date it applies from, F2F/WOPD requirement, documentation gates (SWO, UTN-before-claim, F2F/WOPD sequencing), and deterministic denial-risk flags — plus a catalog-level exposure summary. Some items are phased in by state: with a state the answer is definitive; without one they are reported as required in some states (paRequiredInSomeStates). Unknown or non-HCPCS codes are flagged and count as billable answers. Priced per code — $0.01 × number of codes, max 100 per call. Returns JSON. Original Medicare FFS scope. PHI-free: codes in, rules out.',
     price: '$0.01',
     endpoint: '/agent/v1/pa/exposure-report',
     annotations: PAID_LOOKUP,
@@ -296,7 +296,7 @@ export const MCP_TOOLS = [
   {
     name: 'ner_extract',
     title: 'Extract ICD-10-CM, HCPCS and CPT codes and dates from clinical text',
-    description: 'Extract the medical codes already present in de-identified text and check each against the MyMedi-AI code database: ICD-10-CM codes whole, dotted or undotted, with their 7th-character extensions (S72.001A, S72001A); HCPCS Level II codes (a letter A–V and four digits), with modifiers attached (E0601RR, E0601-RR) reported as modifiers — a glued suffix only when it is a known DMEPOS modifier; and CPT codes only where a keyword such as CPT or procedure code marks them (Category II and III and PLA codes such as 0001U included), so ZIP codes and other numbers are not read as codes, and a five-digit number that continues a marked list is kept only when the CPT set holds it. Codes are read in upper case, as code sets print them; lower-case text is not read as a code. Each code entity says whether the code set holds it (inCodeSet) and, when it does, gives its description and whether it is active; an undotted ICD-10-CM shape is returned only when the code set holds it, so words such as B12 are not read as codes. codeSets names the code-set releases checked. Also returns M/D/Y dates and one MEDICATION_INDICATOR entity when a dose unit (mg, mcg or mL) appears. It does not extract drug names and does not infer or suggest codes (use code_suggest for that). PHI-free: send de-identified text only.',
+    description: 'Extract the medical codes already present in de-identified text and check each against the MyMedi-AI code database: ICD-10-CM codes whole, dotted or undotted, with their 7th-character extensions (S72.001A, S72001A); HCPCS Level II codes (a letter A–V and four digits), with modifiers attached (E0601RR, E0601-RR) reported as modifiers — a glued suffix only when it is a known DMEPOS modifier; and CPT codes only where a keyword such as CPT or procedure code marks them (Category II and III and PLA codes such as 0001U included), so ZIP codes and other numbers are not read as codes, and a five-digit number that continues a marked list is kept only when the CPT set holds it. Codes are read in upper case, as code sets print them; lower-case text is not read as a code. Each code entity says whether the code set holds it (inCodeSet) and, when it does, gives its description and whether it is active; an undotted ICD-10-CM shape is returned only when the code set holds it, so words such as B12 are not read as codes. codeSets names the code-set releases checked. Also returns M/D/Y dates and one MEDICATION_INDICATOR entity when a dose unit (mg, mcg or mL) appears. It does not extract drug names and does not infer or suggest codes. PHI-free: for de-identified text only.',
     price: '$0.02',
     endpoint: '/agent/v1/ner/extract',
     annotations: PAID_LOOKUP,
@@ -310,7 +310,7 @@ export const MCP_TOOLS = [
   {
     name: 'claims_validate',
     title: 'Pre-submission claim code and date check',
-    description: 'Pre-submission check of a claim\'s codes and dates — no patient or provider identifiers needed or accepted. Checks that the diagnosis (ICD-10-CM) and procedure (CPT/HCPCS Level II) codes exist and are active on the date of service, that modifiers are well-formed, and that the date of service is not in the future; returns whether the claim passed, with the errors and warnings found. A CPT code missing from the loaded CMS fee schedule file, or a modifier this reference does not list for DMEPOS, is a warning, not an error. Up to 25 diagnosis codes, 50 procedure codes and 20 modifiers per claim. It applies no NCCI edits — neither procedure-to-procedure (PTP) pairs nor MUE unit limits — and does not assess medical necessity or prior authorization: use pa_required_check or order_readiness_checklist for those requirements.',
+    description: 'Pre-submission check of a claim\'s codes and dates — no patient or provider identifiers needed or accepted. Checks that the diagnosis (ICD-10-CM) and procedure (CPT/HCPCS Level II) codes exist and are active on the date of service, that modifiers are well-formed, and that the date of service is not in the future; returns whether the claim passed, with the errors and warnings found. A CPT code missing from the loaded CMS fee schedule file, or a modifier this reference does not list for DMEPOS, is a warning, not an error. Up to 25 diagnosis codes, 50 procedure codes and 20 modifiers per claim. It applies no NCCI edits — neither procedure-to-procedure (PTP) pairs nor MUE unit limits — and does not assess medical necessity or prior authorization.',
     price: '$0.05',
     endpoint: '/agent/v1/claims/validate',
     annotations: PAID_LOOKUP,
@@ -331,7 +331,7 @@ export const MCP_TOOLS = [
   {
     name: 'compliance_audit',
     title: 'DMEPOS order documentation audit (SWO, F2F/WOPD, prior auth)',
-    description: 'Audit one DMEPOS order\'s documentation against the Original Medicare requirements that apply to its HCPCS code on the date of service: the standard written order (SWO) elements (42 CFR 410.38(d)(1)(i)); for items on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List, a face-to-face encounter within the 6 months before the order and the written order before delivery, otherwise the written order before the claim; and for items on the current CMS Required Prior Authorization List, an affirmed decision before delivery. Some items are phased in by state: without a state such an order is refused (refunded) unless an affirmed decision is reported. A code the HCPCS set does not hold, one not valid on the date of service, or one the CMS DMEPOS Jurisdiction List bills to the A/B MAC (Part B) rather than a DME MAC, or a discontinued code that list does not show, is refused (refunded); for a code under joint jurisdiction the answer gives CMS\'s wording of when the A/B MAC takes it. Report each fact as true/false — never names, identifiers, signatures or other values. Each requirement comes back pass or fail with its citation; a fact not reported fails, and any failed requirement fails the order (result: fail). It checks the facts reported, not the documents themselves. Not checked: LCD coverage criteria and medical-necessity documentation, proof of delivery and billing modifiers. Costs 250 credits per call.',
+    description: 'Audit one DMEPOS order\'s documentation against the Original Medicare requirements that apply to its HCPCS code on the date of service: the standard written order (SWO) elements (42 CFR 410.38(d)(1)(i)); for items on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List, a face-to-face encounter within the 6 months before the order and the written order before delivery, otherwise the written order before the claim; and for items on the current CMS Required Prior Authorization List, an affirmed decision before delivery. Some items are phased in by state: without a state such an order is refused (refunded) unless an affirmed decision is reported. A code the HCPCS set does not hold, one not valid on the date of service, or one the CMS DMEPOS Jurisdiction List bills to the A/B MAC (Part B) rather than a DME MAC, or a discontinued code that list does not show, is refused (refunded); for a code under joint jurisdiction the answer gives CMS\'s wording of when the A/B MAC takes it. Each fact is a true/false flag; no names, identifiers, signatures or other values are taken. Each requirement comes back pass or fail with its citation; a fact not reported fails, and any failed requirement fails the order (result: fail). It checks the facts reported, not the documents themselves. Not checked: LCD coverage criteria and medical-necessity documentation, proof of delivery and billing modifiers. Costs 250 credits per call.',
     price: '$0.25',
     endpoint: '/agent/v1/compliance/audit',
     annotations: PAID_LOOKUP,
@@ -375,7 +375,7 @@ export const MCP_TOOLS = [
   {
     name: 'drug_interactions',
     title: 'Drug-combination adverse-event disproportionality (FDA FAERS)',
-    description: 'Adverse event reports that name drugs together: coReportCount, the number of FAERS reports naming every listed drug; the reactions most often named in them; and for each reaction a proportional reporting ratio (PRR) with a 95% confidence interval against the reports of each drug without the others. A reaction is marked disproportionate when it has at least 3 co-reports and the lower bound exceeds 1 against every drug (null when a comparison cannot be computed). Drugs are matched by the product name as reported: a brand name such as Coumadin is not merged with its generic, warfarin. A name no FAERS report names is refused (refunded), naming it. FAERS reports are unverified and can be duplicated: report counts and disproportionality are statistical associations, not evidence of an interaction or of causation — confirm with a clinical drug-interaction reference. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
+    description: 'Adverse event reports that name drugs together: coReportCount, the number of FAERS reports naming every listed drug; the reactions most often named in them; and for each reaction a proportional reporting ratio (PRR) with a 95% confidence interval against the reports of each drug without the others. A reaction is marked disproportionate when it has at least 3 co-reports and the lower bound exceeds 1 against every drug (null when a comparison cannot be computed). Drugs are matched by the product name as reported: a brand name such as Coumadin is not merged with its generic, warfarin. A name no FAERS report names is refused (refunded), naming it. FAERS reports are unverified and can be duplicated: report counts and disproportionality are statistical associations, not evidence of an interaction or of causation, and no substitute for a clinical drug-interaction reference. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
     price: '$0.03',
     endpoint: '/agent/v1/drugs/interactions',
     annotations: PAID_OPEN_WORLD,
@@ -400,13 +400,13 @@ export const MCP_TOOLS = [
   {
     name: 'fee_schedule_lookup',
     title: 'DMEPOS fee schedule (state + modifier specific)',
-    description: 'Look up the CMS DMEPOS fee schedule for a DME/orthotic/prosthetic HCPCS code: rental (RR) vs purchase (NU new / UE used), non-rural vs rural, per state. Give a state for exact rates, or omit for national min–max ranges; filter by modifier to narrow to rental or purchase. Source: the current CMS DMEPOS fee schedule quarter. For professional-service (CPT) payment use code_reimbursement instead.',
+    description: 'Look up the CMS DMEPOS fee schedule for a DME/orthotic/prosthetic HCPCS code: rental (RR) vs purchase (NU new / UE used), non-rural vs rural, per state. With a state it returns that state\'s exact rates, without one national min–max ranges; a modifier narrows the answer to rental or purchase. Source: the current CMS DMEPOS fee schedule quarter. It has no professional-service (CPT) rates.',
     price: '$0.01',
     endpoint: '/agent/v1/codes/fee-schedule',
     annotations: PAID_LOOKUP,
     schema: {
       code: text().describe('DMEPOS HCPCS code (e.g., "E0601", "K0800", "E1390")'),
-      state: text().optional().describe('2-letter US jurisdiction (50 states + DC/PR/VI) for exact non-rural/rural rates; omit for national ranges'),
+      state: text().optional().describe('2-letter US jurisdiction (50 states + DC/PR/VI) for exact non-rural/rural rates; national ranges when omitted'),
       modifier: anyCaseEnum(['RR', 'NU', 'UE']).optional().describe('Narrow to rental (RR) or purchase (NU new / UE used)'),
     },
   },
@@ -445,7 +445,7 @@ export const MCP_TOOLS = [
   {
     name: 'drug_rxnorm',
     title: 'RxNorm drug normalization (NIH)',
-    description: 'Normalize a drug name with NIH RxNorm: returns the matching RxNorm concepts (RxCUI, name, synonym, term type) and the primary RxCUI. It does not check interactions — use drug_interactions for drug-drug interaction signals. Source: RxNorm, from the U.S. National Library of Medicine (RxNav API).',
+    description: 'Normalize a drug name with NIH RxNorm: returns the matching RxNorm concepts (RxCUI, name, synonym, term type) and the primary RxCUI. It does not check interactions. Source: RxNorm, from the U.S. National Library of Medicine (RxNav API).',
     price: '$0.02',
     endpoint: '/agent/v1/drugs/rxnorm',
     annotations: PAID_OPEN_WORLD,
@@ -515,7 +515,7 @@ export const MCP_TOOLS = [
   {
     name: 'drug_enrich',
     title: 'Drug label data with an LLM summary (openFDA)',
-    description: 'Look up a drug by brand or generic name in openFDA and return its first matching FDA label: brand and generic name, manufacturer, NDCs, route, substance, product type, and the label\'s indications, warnings, dosage and administration, adverse reactions and drug-interactions sections (null when the label has no such section). Adds an LLM-generated summary, labelled as such: therapeutic class, common uses, alternative therapies and clinical notes. It does not check interactions between drugs — use drug_interactions for that — and makes no prior-authorization, coverage or cost determination. A failed call (drug not found, openFDA or the model unavailable) is refunded.',
+    description: 'Look up a drug by brand or generic name in openFDA and return its first matching FDA label: brand and generic name, manufacturer, NDCs, route, substance, product type, and the label\'s indications, warnings, dosage and administration, adverse reactions and drug-interactions sections (null when the label has no such section). Adds an LLM-generated summary, labelled as such: the therapeutic class and the indications the label states. It gives no treatment advice, does not check interactions between drugs, and makes no prior-authorization, coverage or cost determination. A failed call (drug not found, openFDA or the model unavailable) is refunded.',
     price: '$0.03',
     endpoint: '/agent/v1/drugs/enrich',
     annotations: PAID_OPEN_WORLD,
@@ -552,7 +552,7 @@ export const MCP_TOOLS = [
   {
     name: 'buy_credits',
     title: 'Buy credits — get a Stripe checkout link',
-    description: 'Top up your MyMedi-AI credits. Creates a Stripe Checkout session and returns a checkoutUrl for you to open and complete payment in the browser — calling this tool charges nothing by itself. Specify amount (USD, min $1 = 1,000 credits) or package (starter $1, basic $5, standard $25, professional $100, enterprise $500). 1 credit = $0.001; credits are added automatically after checkout.',
+    description: 'Top up your MyMedi-AI credits. Creates a Stripe Checkout session and returns a checkoutUrl for you to open and complete payment in the browser — calling this tool charges nothing by itself. It takes an amount (USD, min $1 = 1,000 credits) or a package (starter $1, basic $5, standard $25, professional $100, enterprise $500). 1 credit = $0.001; credits are added automatically after checkout.',
     price: 'free',
     auth: true,
     method: 'POST',

@@ -71,7 +71,7 @@ describe('tool descriptions say only what the tools return', () => {
     const { title, description } = getToolByName('drug_enrich');
     assert.doesNotMatch(`${title}\n${description}`, /prior[- ]auth\w* likelihood|cost tier|AI analysis/i);
     assert.match(description, /LLM-generated summary, labelled as such/);
-    assert.match(description, /does not check interactions between drugs — use drug_interactions/);
+    assert.match(description, /does not check interactions between drugs/);
     assert.match(description, /A failed call \(drug not found, openFDA or the model unavailable\) is refunded/);
   });
 
