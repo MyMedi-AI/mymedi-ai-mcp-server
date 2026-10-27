@@ -247,6 +247,10 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
 
+## Changes in 1.7.10
+
+No configuration changes. Every tool repeats its title in `annotations.title`, where the Claude Connectors Directory reads it. `provider_search` (`taxonomy`) and `market_analysis` (`specialty`) describe the specialty they take as an NPPES (NUCC) taxonomy description, such as "Pulmonary Disease" or "Orthopaedic Surgery", where a trailing `*` matches a prefix; the API refuses a specialty NPPES cannot match (a 400, at no cost) instead of reporting zero providers.
+
 ## Changes in 1.7.9
 
 No configuration changes. Tool descriptions say what each tool returns and when it applies; none instructs the model or names another tool. `drug_enrich` and `pa_predict` describe what the API now returns: the `drug_enrich` summary restates the label (the therapeutic class and the indications it lists) and no longer names alternative therapies or adds clinical notes, so the tool gives no treatment advice; the `pa_predict` recommendation states the CMS requirement, whatever the approval rate. Neither makes a coverage or prior-authorization determination.

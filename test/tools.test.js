@@ -8,6 +8,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+
+import { createMcpServer, createSandboxServer } from '../src/index.js';
 import { MCP_TOOLS, SERVER_INSTRUCTIONS, getToolByName } from '../src/tools.js';
 
 const isFree = (tool) => tool.price === 'free';
@@ -144,4 +148,31 @@ describe('server instructions', () => {
     assert.doesNotMatch(SERVER_INSTRUCTIONS, /HIPAA/i);
     assert.doesNotMatch(SERVER_INSTRUCTIONS, /\b(we|our|I|my)\b/);
   });
+});
+
+// The Connectors Directory reads annotations.title, not the top-level title.
+describe('tools/list', () => {
+  const servers = [
+    ['server', () => createMcpServer({ apiKey: '', apiBaseUrl: 'http://api.test', connectorToken: '' })],
+    ['sandbox server', createSandboxServer],
+  ];
+
+  for (const [label, create] of servers) {
+    it(`should carry every tool title in its annotations (${label})`, async () => {
+      // Arrange
+      const server = create();
+      const client = new Client({ name: 'test-client', version: '1.0.0' });
+      const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+      await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+
+      // Act
+      const { tools } = await client.listTools();
+      await client.close();
+      await server.close();
+
+      // Assert
+      const mismatched = tools.filter((t) => !t.title || t.annotations?.title !== t.title).map((t) => t.name);
+      assert.deepEqual(mismatched, []);
+    });
+  }
 });

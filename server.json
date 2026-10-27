@@ -7,14 +7,14 @@
     "url": "https://github.com/MyMedi-AI/mymedi-ai-mcp-server",
     "source": "github"
   },
-  "version": "1.7.9",
+  "version": "1.7.10",
   "websiteUrl": "https://mymedi-ai.com",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@mymedi-ai/mcp-server",
-      "version": "1.7.9",
+      "version": "1.7.10",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

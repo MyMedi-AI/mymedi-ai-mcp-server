@@ -495,7 +495,7 @@ export const MCP_TOOLS = [
       firstName: z.string().max(MAX_NAME).optional(),
       lastName: z.string().max(MAX_NAME).optional(),
       organizationName: z.string().max(MAX_NAME).optional(),
-      taxonomy: text().optional().describe('Provider taxonomy/specialty code'),
+      taxonomy: text().optional().describe('Provider specialty as an NPPES (NUCC) taxonomy description, e.g. "Family Medicine"; a trailing * matches a prefix'),
       city: text().optional(),
       state: text().optional().describe('2-letter state code'),
       limit: z.number().min(1).max(MAX_RESULTS).optional().describe('Max results (default 10, max 50)'),
@@ -533,7 +533,7 @@ export const MCP_TOOLS = [
     annotations: PAID_OPEN_WORLD,
     schema: {
       state: anyCaseEnum(US_STATE_CODES).describe('2-letter state code (e.g., "TX", "CA")'),
-      specialty: z.string().max(MAX_NAME).describe('Medical specialty (e.g., "cardiology", "orthopedics")'),
+      specialty: z.string().max(MAX_NAME).describe('Medical specialty as an NPPES (NUCC) taxonomy description, e.g. "Pulmonary Disease", "Cardiovascular Disease" or "Orthopaedic Surgery"; a trailing * matches a prefix ("Pulmon*")'),
     },
   },
 

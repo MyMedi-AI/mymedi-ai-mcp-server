@@ -45,12 +45,13 @@ export function createMcpServer({
 } = {}) {
   const baseHeaders = makeBaseHeaders({ apiKey, connectorToken });
   const s = new McpServer({ name: 'mymedi-ai', version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
+  // annotations.title repeats the title: the Connectors Directory reads it there.
   for (const tool of MCP_TOOLS) {
     s.registerTool(tool.name, {
       title: tool.title,
       description: tool.description,
       inputSchema: tool.schema,
-      annotations: tool.annotations,
+      annotations: { title: tool.title, ...tool.annotations },
     }, async (params) => {
       const toolDef = getToolByName(tool.name);
       if (!toolDef) {
@@ -136,7 +137,7 @@ export function createSandboxServer() {
       title: tool.title,
       description: tool.description,
       inputSchema: tool.schema,
-      annotations: tool.annotations,
+      annotations: { title: tool.title, ...tool.annotations },
     }, async () => ({ content: [{ type: 'text', text: 'sandbox' }] }));
   }
   return sandboxServer;

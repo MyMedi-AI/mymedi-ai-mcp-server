@@ -247,4 +247,11 @@ describe('README: the clinical tools and the Claude setup path', () => {
     assert.match(notes, /`drug_enrich` summary[^\n]*no treatment advice/);
     assert.match(notes, /`pa_predict` recommendation states the CMS requirement/);
   });
+
+  it('should note annotations.title and the NUCC specialty descriptions for 1.7.10', () => {
+    const notes = section('## Changes in 1.7.10');
+    assert.match(notes, /`annotations\.title`/);
+    ['provider_search', 'market_analysis'].forEach((tool) => assert.match(notes, new RegExp(`\`${tool}\``)));
+    assert.match(notes, /NPPES \(NUCC\) taxonomy description/);
+  });
 });
