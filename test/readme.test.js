@@ -211,10 +211,6 @@ describe('README: the clinical tools and the Claude setup path', () => {
     assert.match(row('compliance_audit'), /one DMEPOS order's documentation[^|]*fails when any requirement fails/);
   });
 
-  it('should describe drug_interactions as co-report counts with a PRR per reaction', () => {
-    assert.match(row('drug_interactions'), /proportional reporting ratio \(PRR\)[^|]*not evidence of an interaction/);
-  });
-
   it('should give the current Claude connector paths for individual and organization plans', () => {
     assert.match(README, /Customize → Connectors → \*\*\+ Add\*\* → \*\*Add custom connector\*\*/);
     assert.match(README, /Organization settings → Connectors → \*\*Add\*\* → \*\*Custom\*\* → \*\*Web\*\*/);
@@ -237,11 +233,6 @@ describe('README: the clinical tools and the Claude setup path', () => {
     assert.match(section('## Changes in 1.7.8'), /`auditType` is optional and takes only `dme_order`/);
   });
 
-  it('should describe drug_enrich as a label summary without treatment alternatives', () => {
-    assert.match(row('drug_enrich'), /no treatment advice/);
-    assert.doesNotMatch(row('drug_enrich'), /alternative/i);
-  });
-
   it('should note the drug_enrich and pa_predict changes for 1.7.9', () => {
     const notes = section('## Changes in 1.7.9');
     assert.match(notes, /`drug_enrich` summary[^\n]*no treatment advice/);
@@ -253,5 +244,18 @@ describe('README: the clinical tools and the Claude setup path', () => {
     assert.match(notes, /`annotations\.title`/);
     ['provider_search', 'market_analysis'].forEach((tool) => assert.match(notes, new RegExp(`\`${tool}\``)));
     assert.match(notes, /NPPES \(NUCC\) taxonomy description/);
+  });
+
+  it('should say in the 2.0.0 notes which nine tools were retired', () => {
+    const notes = section('## Changes in 2.0.0');
+    [
+      'drug_lookup', 'drug_interactions', 'drug_rxnorm', 'drug_enrich', 'trials_search',
+      'disease_surveillance', 'market_analysis', 'provider_payments', 'provider_enrich',
+    ].forEach((tool) => assert.match(notes, new RegExp(`\`${tool}\``)));
+  });
+
+  it('should list no retired tool in the tool tables', () => {
+    const tables = README.slice(README.indexOf('## Tools ('), README.indexOf('## Prompts'));
+    assert.doesNotMatch(tables, /drug_|trials_search|disease_surveillance|market_analysis|provider_payments|provider_enrich/);
   });
 });

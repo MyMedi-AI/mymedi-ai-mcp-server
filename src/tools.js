@@ -1,6 +1,6 @@
 /**
  * MCP Tool Definitions for MyMedi-AI Healthcare Agent API
- * 32 tools: 6 free no-auth + 24 paid + 2 free account tools mapped
+ * 23 tools: 6 free no-auth + 15 paid + 2 free account tools mapped
  * to MCP tool format. Uses Zod schemas (required by @modelcontextprotocol/sdk >=1.28).
  *
  * Mirrors server/mcp/tools.js (the hosted connector); that repo's
@@ -55,8 +55,7 @@ const MAX_TEXT = 500;
 const MAX_CLAIM_CODE = 10; // each code / modifier on a claim; dateOfService (YYYY-MM-DD)
 const MAX_CLINICAL_TEXT = 20000; // ner_extract text; compliance_audit payload
 const MAX_CODE_DESCRIPTION = 500; // code_suggest: the search reads no more
-const MAX_TRIALS_QUERY = 200; // trials_search query fields
-const MAX_NAME = 100; // provider_search names; market_analysis specialty
+const MAX_NAME = 100; // provider_search names
 const MAX_RESULTS = 50;
 
 // 50 states, DC and the five inhabited territories (NPPES jurisdictions).
@@ -91,7 +90,7 @@ export const MCP_TOOLS = [
   {
     name: 'pa_required_check',
     title: 'Medicare DMEPOS prior-auth required check (free)',
-    description: 'Check whether a HCPCS code is on the current CMS Required Prior Authorization List (42 CFR 414.234) on a date of service (default today). Returns paRequired flag, category, nationwide-since date, and list version. Some items are phased in by state: for those, paRequired is null until a state is given. Original Medicare FFS scope. Free, no API key required.',
+    description: 'Check whether a HCPCS code is on the current CMS Required Prior Authorization List (42 CFR 414.234) on a date of service (default today). Returns paRequired flag, category, nationwide-since date, and list version. Some items are phased in by state: for those, paRequired is null until a state is given. Codes on the separate CMS Probationary Prior Authorization List (it applies only to newly enrolled suppliers) also return a probationaryPa block. Original Medicare FFS scope. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -146,7 +145,7 @@ export const MCP_TOOLS = [
   {
     name: 'order_readiness_checklist',
     title: 'DMEPOS order-readiness checklist (free)',
-    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Requirement definitions only; it takes no patient data (PHI-free). Free, no API key required.',
+    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Codes on the separate CMS Probationary Prior Authorization List (it applies only to newly enrolled suppliers) also return a probationaryPa block. Requirement definitions only; it takes no patient data (PHI-free). Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -359,31 +358,6 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Drug Intelligence (openFDA) ---
-  {
-    name: 'drug_lookup',
-    title: 'Drug label and adverse-event lookup (OpenFDA)',
-    description: 'Look up drug information including label data, adverse events, and related diagnosis codes. Source: openFDA (FDA drug labels and adverse-event reports); related diagnosis codes come from the MyMedi-AI code database.',
-    price: '$0.01',
-    endpoint: '/agent/v1/drugs/lookup',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      drugName: text().describe('Drug name (brand, generic, or substance — min 2 chars)'),
-      searchField: anyCaseEnum(['brand_name', 'generic_name', 'product_ndc', 'substance_name']).optional().describe('Search field (default: brand_name)'),
-    },
-  },
-  {
-    name: 'drug_interactions',
-    title: 'Drug-combination adverse-event disproportionality (FDA FAERS)',
-    description: 'Adverse event reports that name drugs together: coReportCount, the number of FAERS reports naming every listed drug; the reactions most often named in them; and for each reaction a proportional reporting ratio (PRR) with a 95% confidence interval against the reports of each drug without the others. A reaction is marked disproportionate when it has at least 3 co-reports and the lower bound exceeds 1 against every drug (null when a comparison cannot be computed). Drugs are matched by the product name as reported: a brand name such as Coumadin is not merged with its generic, warfarin. A name no FAERS report names is refused (refunded), naming it. FAERS reports are unverified and can be duplicated: report counts and disproportionality are statistical associations, not evidence of an interaction or of causation, and no substitute for a clinical drug-interaction reference. Source: the FDA Adverse Event Reporting System (FAERS), via openFDA.',
-    price: '$0.03',
-    endpoint: '/agent/v1/drugs/interactions',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      drugs: z.array(text()).min(2).max(5).describe('Array of 2-5 different drug names (brand or generic), each matched against the product name reported in FAERS. Drug names need at least two letters or digits and may otherwise hold only spaces, hyphens, apostrophes, periods, slashes, parentheses and commas; accents, curly apostrophes, ® and ™, "+" and "&", and strengths such as 0.5% or 1:100,000 are normalized first (a refused name is refunded)'),
-    },
-  },
-
   // --- Reimbursement Rates (CMS PFS) ---
   {
     name: 'code_reimbursement',
@@ -411,23 +385,6 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- Clinical Trials (ClinicalTrials.gov) ---
-  {
-    name: 'trials_search',
-    title: 'Clinical trials search (ClinicalTrials.gov)',
-    description: 'Search active clinical trials by condition, ICD-10 code, or intervention. Returns trial details including NCT ID, phase, enrollment, and eligibility. Source: ClinicalTrials.gov.',
-    price: '$0.03',
-    endpoint: '/agent/v1/trials/search',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      condition: z.string().max(MAX_TRIALS_QUERY).optional().describe('Medical condition to search for'),
-      code: z.string().max(MAX_TRIALS_QUERY).optional().describe('ICD-10 code (auto-mapped to condition)'),
-      intervention: z.string().max(MAX_TRIALS_QUERY).optional().describe('Drug or intervention name'),
-      status: anyCaseEnum(['RECRUITING', 'ACTIVE_NOT_RECRUITING', 'COMPLETED', 'NOT_YET_RECRUITING']).optional().describe('Trial status filter (default: RECRUITING)'),
-      limit: z.number().min(1).max(MAX_RESULTS).optional().describe('Max results (default 10, max 50)'),
-    },
-  },
-
   // --- Code Cross-Reference ---
   {
     name: 'code_crossref',
@@ -441,57 +398,16 @@ export const MCP_TOOLS = [
     },
   },
 
-  // --- RxNorm Drug Lookup (NLM RxNav) ---
-  {
-    name: 'drug_rxnorm',
-    title: 'RxNorm drug normalization (NIH)',
-    description: 'Normalize a drug name with NIH RxNorm: returns the matching RxNorm concepts (RxCUI, name, synonym, term type) and the primary RxCUI. It does not check interactions. Source: RxNorm, from the U.S. National Library of Medicine (RxNav API).',
-    price: '$0.02',
-    endpoint: '/agent/v1/drugs/rxnorm',
-    annotations: PAID_OPEN_WORLD,
-    // No interaction input: NLM retired the RxNav interaction API on 2024-01-02.
-    schema: {
-      drugName: text().describe('Drug name to look up (min 2 chars)'),
-    },
-  },
-
-  // --- Physician Payments (CMS Open Payments) ---
-  {
-    name: 'provider_payments',
-    title: 'Physician industry payments (CMS Open Payments)',
-    description: 'Look up pharmaceutical and device company payments to a physician (Sunshine Act data). Returns total payments, breakdown by type, and top paying companies. Source: CMS Open Payments.',
-    price: '$0.02',
-    endpoint: '/agent/v1/providers/payments',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      npi: text().describe('10-digit NPI number of the physician'),
-    },
-  },
-
-  // --- Disease Surveillance (CDC NNDSS) ---
-  {
-    name: 'disease_surveillance',
-    title: 'Disease surveillance case counts (CDC NNDSS)',
-    description: 'Look up disease surveillance data including case counts and trends by condition and geography. Source: CDC National Notifiable Diseases Surveillance System (NNDSS) weekly data on data.cdc.gov.',
-    price: '$0.02',
-    endpoint: '/agent/v1/surveillance/disease',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      condition: text().optional().describe('Disease or condition name (e.g., "Hepatitis A", "Salmonellosis")'),
-      code: text().optional().describe('ICD-10 code (auto-mapped to condition name)'),
-      state: text().optional().describe('2-letter state code to filter by geography'),
-    },
-  },
-
   // --- Data Enrichment ---
   {
     name: 'provider_search',
     title: 'NPI provider directory search',
-    description: 'Search the NPI provider directory. Find healthcare providers by name, specialty, or location.',
+    description: 'Search the NPI provider directory (CMS NPPES) by name, specialty or location, or read one provider\'s registry record by NPI, for example to check the practitioner named on an order. Source: CMS NPPES NPI Registry.',
     price: '$0.005',
     endpoint: '/agent/v1/providers/search',
     annotations: PAID_OPEN_WORLD,
     schema: {
+      npi: text().optional().describe('10-digit NPI to read one registry record; when given, the other fields are ignored'),
       firstName: z.string().max(MAX_NAME).optional(),
       lastName: z.string().max(MAX_NAME).optional(),
       organizationName: z.string().max(MAX_NAME).optional(),
@@ -499,41 +415,6 @@ export const MCP_TOOLS = [
       city: text().optional(),
       state: text().optional().describe('2-letter state code'),
       limit: z.number().min(1).max(MAX_RESULTS).optional().describe('Max results (default 10, max 50)'),
-    },
-  },
-  {
-    name: 'provider_enrich',
-    title: 'AI-enriched provider intelligence (NPI)',
-    description: 'Look up a provider by NPI in the CMS NPPES registry (name, credential, primary and other taxonomies, practice address, enumeration date) and add an LLM-generated estimate, labelled as such, of specialty demand, network gaps and referral categories for that type of provider. The model is given the provider type — specialty, taxonomy, credential, state, entity type and enumeration date — never the name or NPI. Not a CMS or quality measure. A failed call (unknown NPI, model unavailable) is refunded.',
-    price: '$0.05',
-    endpoint: '/agent/v1/providers/enrich',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      npi: text().describe('10-digit NPI number'),
-    },
-  },
-  {
-    name: 'drug_enrich',
-    title: 'Drug label data with an LLM summary (openFDA)',
-    description: 'Look up a drug by brand or generic name in openFDA and return its first matching FDA label: brand and generic name, manufacturer, NDCs, route, substance, product type, and the label\'s indications, warnings, dosage and administration, adverse reactions and drug-interactions sections (null when the label has no such section). Adds an LLM-generated summary, labelled as such: the therapeutic class and the indications the label states. It gives no treatment advice, does not check interactions between drugs, and makes no prior-authorization, coverage or cost determination. A failed call (drug not found, openFDA or the model unavailable) is refunded.',
-    price: '$0.03',
-    endpoint: '/agent/v1/drugs/enrich',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      drugName: text().describe('Drug name (brand or generic, min 2 chars)'),
-      searchField: anyCaseEnum(['brand_name', 'generic_name']).optional().describe('Match the name against the label\'s brand name or generic name (default: brand_name)'),
-    },
-  },
-  {
-    name: 'market_analysis',
-    title: 'Healthcare specialty market analysis by state',
-    description: 'Specialty snapshot for a US state: how many providers one CMS NPPES registry query matches for the specialty (the query returns at most 200 records, so the figure is a floor, not a provider count), plus an LLM-generated estimate, labelled as such, of demand outlook, likely underserved areas and opportunities. Not a CMS or quality measure. A failed call (model unavailable) is refunded.',
-    price: '$0.10',
-    endpoint: '/agent/v1/market/analysis',
-    annotations: PAID_OPEN_WORLD,
-    schema: {
-      state: anyCaseEnum(US_STATE_CODES).describe('2-letter state code (e.g., "TX", "CA")'),
-      specialty: z.string().max(MAX_NAME).describe('Medical specialty as an NPPES (NUCC) taxonomy description, e.g. "Pulmonary Disease", "Cardiovascular Disease" or "Orthopaedic Surgery"; a trailing * matches a prefix ("Pulmon*")'),
     },
   },
 

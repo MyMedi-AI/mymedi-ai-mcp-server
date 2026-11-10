@@ -1,6 +1,6 @@
 /**
- * The tool catalog the package advertises: 32 tools, split into the six free
- * no-key lookups, the two free account tools and 24 tools billed in credits.
+ * The tool catalog the package advertises: 23 tools, split into the six free
+ * no-key lookups, the two free account tools and 15 tools billed in credits.
  * The hosted connector's copy is held to the same contract by
  * server/mcp/tools.parity.test.js in the MyMedi-AI app repo.
  */
@@ -20,23 +20,23 @@ const perCode = (tool) => Boolean(tool.schema.codes);
 const paid = MCP_TOOLS.filter((tool) => !isFree(tool));
 
 describe('tool catalog', () => {
-  it('should register 32 tools with unique names', () => {
+  it('should register 23 tools with unique names', () => {
     // Arrange
     const names = MCP_TOOLS.map((tool) => tool.name);
 
     // Assert
-    assert.equal(names.length, 32);
+    assert.equal(names.length, 23);
     assert.equal(new Set(names).size, names.length);
   });
 
-  it('should have six free no-key tools, two free account tools and 24 paid tools', () => {
+  it('should have six free no-key tools, two free account tools and 15 paid tools', () => {
     // Arrange
     const freeNoKey = MCP_TOOLS.filter((tool) => isFree(tool) && tool.auth === false);
     const account = MCP_TOOLS.filter((tool) => isFree(tool) && tool.auth === true);
     const paid = MCP_TOOLS.filter((tool) => !isFree(tool));
 
     // Assert
-    assert.deepEqual([freeNoKey.length, account.length, paid.length], [6, 2, 24]);
+    assert.deepEqual([freeNoKey.length, account.length, paid.length], [6, 2, 15]);
   });
 
   it('should price every paid tool as a dollar amount', () => {
@@ -64,21 +64,6 @@ describe('tool descriptions say only what the tools return', () => {
     }
   });
 
-  it('market_analysis: should describe the NPPES floor and a labelled model estimate, not density or competition metrics', () => {
-    const { description } = getToolByName('market_analysis');
-    assert.doesNotMatch(description, /provider density|competition|market opportunity data/i);
-    assert.match(description, /at most 200 records, so the figure is a floor, not a provider count/);
-    assert.match(description, /LLM-generated estimate, labelled as such/);
-  });
-
-  it('drug_enrich: should describe the label and a labelled LLM summary, with no PA likelihood, cost tier or interaction check', () => {
-    const { title, description } = getToolByName('drug_enrich');
-    assert.doesNotMatch(`${title}\n${description}`, /prior[- ]auth\w* likelihood|cost tier|AI analysis/i);
-    assert.match(description, /LLM-generated summary, labelled as such/);
-    assert.match(description, /does not check interactions between drugs/);
-    assert.match(description, /A failed call \(drug not found, openFDA or the model unavailable\) is refunded/);
-  });
-
   it('ner_extract: should describe whole ICD-10-CM, HCPCS and keyword-marked CPT codes, with no drug names or spans', () => {
     const { title, description, schema } = getToolByName('ner_extract');
     assert.doesNotMatch(`${title}\n${description}`, /medication names|span/i);
@@ -96,13 +81,6 @@ describe('tool descriptions say only what the tools return', () => {
     assert.match(schema.payerId.description, /narrows your organization's own decided-PA cohort to that payer/);
   });
 
-  it('provider_enrich: should describe the NPPES record and a labelled model estimate, not affiliations or market context', () => {
-    const { description } = getToolByName('provider_enrich');
-    assert.doesNotMatch(description, /affiliations|market context|practice details/i);
-    assert.match(description, /LLM-generated estimate, labelled as such/);
-    assert.match(description, /never the name or NPI/);
-    assert.match(description, /specialty, taxonomy, credential, state, entity type and enumeration date/);
-  });
 });
 
 // The briefing is computed from the catalog, so these follow the prices.

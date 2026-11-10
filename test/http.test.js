@@ -175,7 +175,7 @@ describe('--http: sessions', () => {
     // Assert
     assert.equal(res.status, 200);
     assert.ok(sessionId);
-    assert.equal(rpcResult(list).result.tools.length, 32);
+    assert.equal(rpcResult(list).result.tools.length, 23);
   });
 
   // MCP spec: an unknown (expired, evicted, never issued) session id is 404,

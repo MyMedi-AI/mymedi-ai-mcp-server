@@ -4,7 +4,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-teal)](./LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Streamable_HTTP-teal)](https://mymedi-ai.com/mcp-stream)
 
-MCP server for DME billing and medical coding. Connect Claude, Cursor, VS Code or any MCP client to **32 tools** — code lookup across a database of 90K+ ICD-10-CM, CPT and HCPCS codes, DMEPOS fee schedules, Medicare prior-authorization and face-to-face list checks, denial-code guidance and pre-submission claim checks — plus five DME billing prompts and three dataset resources. Six tools work with no API key.
+MCP server for DME billing and medical coding. Connect Claude, Cursor, VS Code or any MCP client to **23 tools** — code lookup across a database of 90K+ ICD-10-CM, CPT and HCPCS codes, DMEPOS fee schedules, Medicare prior-authorization and face-to-face list checks, denial-code guidance and pre-submission claim checks — plus five DME billing prompts and three dataset resources. Six tools work with no API key.
 
 PHI-free by design: the tools take codes, modifiers, dates of service and de-identified text, never patient identifiers. Apart from drawing credits for paid calls, no tool changes anything except `buy_credits`, which opens a Stripe checkout session (nothing is charged until checkout is completed in the browser).
 
@@ -49,14 +49,14 @@ Install the server without `MCP_API_KEY` and these work immediately (60 requests
 
 | Tool | What it does |
 |------|--------------|
-| `pa_required_check` | Is a HCPCS code on the CMS Required Prior Authorization List (42 CFR 414.234) on a date of service; phased-in items by state |
+| `pa_required_check` | Is a HCPCS code on the CMS Required Prior Authorization List (42 CFR 414.234) on a date of service; phased-in items by state; flags codes on the Probationary Prior Authorization List for newly enrolled suppliers |
 | `denial_code_info` | DME denial code (CARC) explainer — meaning, common causes, fixes, appealability |
 | `code_lookup_basic` | Basic code metadata — code, type, description, category, active status |
 | `reimbursement_basic` | Medicare national PFS payment and DMEPOS fee-schedule ranges (rental/purchase) |
-| `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior authorization (42 CFR 410.38) |
+| `order_readiness_checklist` | Blank DMEPOS pre-delivery checklist — SWO elements, F2F/WOPD, prior authorization (42 CFR 410.38), probationary prior authorization for newly enrolled suppliers |
 | `modifier_advisor` | DMEPOS billing-modifier guidance — KX/GA/GY/GZ, RR/NU/UE, capped-rental months, laterality |
 
-The other 26 tools need an API key (or the connector sign-in): 24 are paid — per call, or per code for `code_lookup_batch`, `code_validate_batch` and `pa_exposure_report` — and `account_status` and `buy_credits` are free but need the key to identify the account.
+The other 17 tools need an API key (or the connector sign-in): 15 are paid — per call, or per code for `code_lookup_batch`, `code_validate_batch` and `pa_exposure_report` — and `account_status` and `buy_credits` are free but need the key to identify the account.
 
 ## Client setup
 
@@ -117,7 +117,7 @@ Add to `.vscode/mcp.json`:
 claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp-server
 ```
 
-## Tools (32)
+## Tools (23)
 
 ### Free (no API key)
 | Tool | Description | Price |
@@ -157,27 +157,10 @@ claude mcp add mymedi-ai --env MCP_API_KEY=your-api-key -- npx -y @mymedi-ai/mcp
 | `ner_extract` | ICD-10-CM, HCPCS Level II (with modifiers) and keyword-marked CPT codes found in de-identified text, each checked against the code sets, plus M/D/Y dates and a dose-unit flag; no drug names | $0.02 |
 | `compliance_audit` | Audit of one DMEPOS order's documentation (SWO elements, F2F/WOPD, prior authorization) for its HCPCS code and date of service, from true/false facts — never identifiers; pass or fail per requirement with its citation, and a result that fails when any requirement fails | $0.25 |
 
-### Drug data
+### Providers
 | Tool | Description | Price |
 |------|-------------|-------|
-| `drug_lookup` | OpenFDA drug label and adverse-event data | $0.01 |
-| `drug_interactions` | FAERS reports naming the drugs together, with a proportional reporting ratio (PRR) and 95% interval per reaction against each drug alone — statistical associations, not evidence of an interaction | $0.03 |
-| `drug_rxnorm` | Normalize a drug name with NIH RxNorm (RxCUI, term type) | $0.02 |
-| `drug_enrich` | First matching openFDA drug label plus a labelled LLM summary (class and the indications the label states); no treatment advice, no interaction check and no prior-auth, coverage or cost determination | $0.03 |
-
-### Providers and market
-| Tool | Description | Price |
-|------|-------------|-------|
-| `provider_search` | NPI registry (NPPES) search by name, specialty or location | $0.005 |
-| `provider_enrich` | NPPES record for an NPI plus a labelled LLM estimate of specialty demand, network gaps and referral categories | $0.05 |
-| `provider_payments` | Industry payments to a physician (CMS Open Payments) | $0.02 |
-| `market_analysis` | NPPES provider count for a specialty and state (a floor; one query returns at most 200) plus a labelled LLM estimate of demand and opportunities | $0.10 |
-
-### Clinical and public health
-| Tool | Description | Price |
-|------|-------------|-------|
-| `trials_search` | Clinical trials (ClinicalTrials.gov) | $0.03 |
-| `disease_surveillance` | Notifiable-disease case counts (CDC NNDSS) | $0.02 |
+| `provider_search` | NPI registry (NPPES) search by name, specialty or location, or one provider's record by NPI | $0.005 |
 
 ## Prompts
 
@@ -247,6 +230,12 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
 
+## Changes in 2.0.0
+
+**Breaking: nine tools are retired.** `drug_lookup`, `drug_interactions`, `drug_rxnorm`, `drug_enrich`, `trials_search`, `disease_surveillance`, `market_analysis`, `provider_payments` and `provider_enrich` were not DME billing and are gone from the server, the API and this package; their endpoints answer 404. The catalog is 23 tools: 6 free, 15 paid, 2 account.
+
+`provider_search` takes an optional `npi` and returns that provider's NPPES record, for checking the practitioner named on an order. `pa_required_check` and `order_readiness_checklist` return a `probationaryPa` block for codes on the CMS Probationary Prior Authorization List, which applies only to newly enrolled suppliers; `paRequired` still answers for an established supplier.
+
 ## Changes in 1.7.10
 
 No configuration changes. Every tool repeats its title in `annotations.title`, where the Claude Connectors Directory reads it. `provider_search` (`taxonomy`) and `market_analysis` (`specialty`) describe the specialty they take as an NPPES (NUCC) taxonomy description, such as "Pulmonary Disease" or "Orthopaedic Surgery", where a trailing `*` matches a prefix; the API refuses a specialty NPPES cannot match (a 400, at no cost) instead of reporting zero providers.
@@ -293,9 +282,7 @@ const result = await client.codeLookup('M79.3');
 - **ICD-10-CM and HCPCS Level II**: CMS and CDC code sets
 - **CPT®**: from the CMS physician fee schedule (RVU) files. CPT® is a registered trademark of the American Medical Association (AMA); CPT codes and descriptions are AMA copyright.
 - **Fee schedules and lists**: CMS DMEPOS fee schedule, Medicare physician fee schedule (RVU), the Required Prior Authorization List and the F2F/WOPD list
-- **Providers**: CMS NPI registry (NPPES) and CMS Open Payments
-- **Drugs**: openFDA (labels, adverse events) and NIH RxNorm
-- **Clinical and public health**: ClinicalTrials.gov and CDC NNDSS
+- **Providers**: CMS NPI registry (NPPES)
 
 ## Troubleshooting
 
