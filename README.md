@@ -230,6 +230,14 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
 
+## Changes in 2.1.0
+
+`order_readiness_checklist` and `reimbursement_basic` return a `competitiveBidding` block for an item in the current round of the Medicare DMEPOS Competitive Bidding Program (Round 2028): its product category, the modifier that places it there, the bidding dates and whether contracts are in effect. From January 1, 2028 the single payment amount replaces the fee schedule amount for those items, and `reimbursement_basic` says so.
+
+`order_readiness_checklist` returns a `replacementItem` block for items with a face-to-face requirement, and `compliance_audit` takes a `replacementItem` fact: from January 4, 2027 an item that replaces one with the same HCPCS code needs no new face-to-face encounter (42 CFR 410.38(d)(2)(iii)); a new order is still required.
+
+`modifier_advisor` returns `policyModifiers` for glucose monitor, continuous glucose monitor (CGM) and supply codes: the KX/KS, CG and KF rules of the DME MAC Glucose Monitor policy article.
+
 ## Changes in 2.0.0
 
 **Breaking: nine tools are retired.** `drug_lookup`, `drug_interactions`, `drug_rxnorm`, `drug_enrich`, `trials_search`, `disease_surveillance`, `market_analysis`, `provider_payments` and `provider_enrich` were not DME billing and are gone from the server, the API and this package; their endpoints answer 404. The catalog is 23 tools: 6 free, 15 paid, 2 account.

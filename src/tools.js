@@ -12,8 +12,7 @@ import { z } from 'zod';
 // (buy_credits is the exception: it creates a Stripe checkout session).
 // A free lookup is idempotent; a paid one is not — every call debits prepaid
 // credits. openWorldHint is true only for tools that reach an external
-// public API (openFDA, NPPES, ClinicalTrials.gov, RxNav, Open Payments, CDC)
-// or an LLM; the rest answer from MyMedi-AI's own database or static data.
+// public API (NPPES) or an LLM; the rest answer from MyMedi-AI's own database or static data.
 const FREE_LOOKUP = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -132,7 +131,7 @@ export const MCP_TOOLS = [
   {
     name: 'reimbursement_basic',
     title: 'Medicare national payment rate (free)',
-    description: 'Look up Medicare payment for a code. Returns the national facility and non-facility payment under the current Medicare PFS (CMS RVU × conversion factor) for professional services, plus ranges from the current CMS DMEPOS fee schedule quarter (rental/purchase, min–max across state fees) for DME items like E/K/L codes. Free, no API key required.',
+    description: 'Look up Medicare payment for a code. Returns the national facility and non-facility payment under the current Medicare PFS (CMS RVU × conversion factor) for professional services, plus ranges from the current CMS DMEPOS fee schedule quarter (rental/purchase, min–max across state fees) for DME items like E/K/L codes. An item in the current round of the Medicare DMEPOS Competitive Bidding Program also returns a competitiveBidding block saying when the single payment amount replaces the fee schedule amount. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -145,7 +144,7 @@ export const MCP_TOOLS = [
   {
     name: 'order_readiness_checklist',
     title: 'DMEPOS order-readiness checklist (free)',
-    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Codes on the separate CMS Probationary Prior Authorization List (it applies only to newly enrolled suppliers) also return a probationaryPa block. Requirement definitions only; it takes no patient data (PHI-free). Free, no API key required.',
+    description: 'Blank pre-delivery checklist for a HCPCS DMEPOS code: the universal standard written order (SWO) elements (42 CFR 410.38(d)), whether the code is on the current CMS Required Face-to-Face Encounter & Written Order Prior to Delivery List (F2F/WOPD), and whether it is on the current CMS Required Prior Authorization List, on a date of service (default today). Some items are phased in by state: for those, paRequired is null until a state is given. Codes on the separate CMS Probationary Prior Authorization List (it applies only to newly enrolled suppliers) also return a probationaryPa block. Items with a face-to-face requirement also return a replacementItem block: whether a replacement with the same HCPCS code needs a new encounter on the date of service. Items in the current round of the Medicare DMEPOS Competitive Bidding Program also return a competitiveBidding block (product category, bidding dates, the date contracts start). Requirement definitions only; it takes no patient data (PHI-free). Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -160,7 +159,7 @@ export const MCP_TOOLS = [
   {
     name: 'modifier_advisor',
     title: 'DMEPOS billing-modifier advisor (free)',
-    description: 'Editorial guidance on DMEPOS billing modifiers: the KX/GA/GY/GZ medical-necessity and liability family, RR/NU/UE rental-vs-purchase, capped-rental month markers (KH/KI/KJ), and RT/LT laterality. A HCPCS code scopes the guidance to that item\'s DMEPOS category (a category can also be given directly), and a scenario phrase (e.g., "ABN on file", "bilateral") surfaces the relevant modifiers. Original editorial content, not payer policy. PHI-free. Free, no API key required.',
+    description: 'Editorial guidance on DMEPOS billing modifiers: the KX/GA/GY/GZ medical-necessity and liability family, RR/NU/UE rental-vs-purchase, capped-rental month markers (KH/KI/KJ), and RT/LT laterality. A HCPCS code scopes the guidance to that item\'s DMEPOS category (a category can also be given directly), and a scenario phrase (e.g., "ABN on file", "bilateral") surfaces the relevant modifiers. Glucose monitor, continuous glucose monitor (CGM) and their supply codes also return policyModifiers: the KX/KS, CG and KF rules of the DME MAC Glucose Monitor policy article. Original editorial content, not payer policy. PHI-free. Free, no API key required.',
     price: 'free',
     auth: false,
     method: 'GET',
@@ -350,6 +349,7 @@ export const MCP_TOOLS = [
           practitionerSignature: z.boolean().optional().describe('Treating practitioner signature'),
         }).optional().describe('Standard written order elements: true when on the order (quantity: also when none applies), false when missing — never the values'),
         faceToFaceWithin6Months: z.boolean().optional().describe('F2F/WOPD items: a face-to-face encounter with the treating practitioner within the 6 months before the order date'),
+        replacementItem: z.boolean().optional().describe('F2F/WOPD items: true when the item replaces one with the same HCPCS code that reached the end of its reasonable useful lifetime in continuous use by the same beneficiary, or was lost, stolen or irreparably damaged (42 CFR 410.38(d)(2)(iii)); once that rule applies on the date of service, no new face-to-face encounter is required'),
         orderBeforeDelivery: z.boolean().optional().describe('F2F/WOPD items: the written order reached the supplier before delivery'),
         orderBeforeClaim: z.boolean().optional().describe('Other items: the written order reached the supplier before the claim is submitted'),
         priorAuthorization: anyCaseEnum(['affirmed', 'non_affirmed', 'pending', 'not_requested']).optional().describe('Prior-authorization items: "affirmed" when an affirmed decision was received before delivery'),

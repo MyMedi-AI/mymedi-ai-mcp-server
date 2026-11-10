@@ -246,6 +246,12 @@ describe('README: the clinical tools and the Claude setup path', () => {
     assert.match(notes, /NPPES \(NUCC\) taxonomy description/);
   });
 
+  it('should say in the 2.1.0 notes which blocks and argument the tools gained', () => {
+    const notes = section('## Changes in 2.1.0');
+    ['competitiveBidding', 'replacementItem', 'policyModifiers', 'order_readiness_checklist', 'reimbursement_basic', 'compliance_audit', 'modifier_advisor']
+      .forEach((name) => assert.match(notes, new RegExp(`\`${name}\``)));
+  });
+
   it('should say in the 2.0.0 notes which nine tools were retired', () => {
     const notes = section('## Changes in 2.0.0');
     [
