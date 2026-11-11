@@ -352,7 +352,7 @@ export const MCP_TOOLS = [
         replacementItem: z.boolean().optional().describe('F2F/WOPD items: true when the item replaces one with the same HCPCS code that reached the end of its reasonable useful lifetime in continuous use by the same beneficiary, or was lost, stolen or irreparably damaged (42 CFR 410.38(d)(2)(iii)); once that rule applies on the date of service, no new face-to-face encounter is required'),
         orderBeforeDelivery: z.boolean().optional().describe('F2F/WOPD items: the written order reached the supplier before delivery'),
         orderBeforeClaim: z.boolean().optional().describe('Other items: the written order reached the supplier before the claim is submitted'),
-        priorAuthorization: anyCaseEnum(['affirmed', 'non_affirmed', 'pending', 'not_requested']).optional().describe('Prior-authorization items: "affirmed" when an affirmed decision was received before delivery'),
+        priorAuthorization: anyCaseEnum(['affirmed', 'non_affirmed', 'pending', 'not_requested', 'exempt']).optional().describe('Prior-authorization items: "affirmed" when an affirmed decision was received before delivery; "exempt" when the DME MAC has notified the supplier that it is exempt from prior authorization (42 CFR 414.234(c)(1)(ii)), which the audit does not verify'),
       }).describe('The order: its HCPCS code, date of service and state, and true/false facts about its documentation'),
       auditType: anyCaseEnum(['dme_order']).optional().describe('Optional: "dme_order", the only audit (the default)'),
     },

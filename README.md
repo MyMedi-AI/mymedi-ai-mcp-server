@@ -230,6 +230,10 @@ MCP_HOST=0.0.0.0 MCP_HTTP_TOKEN="$(openssl rand -hex 32)" MCP_ALLOWED_HOSTS=mcp.
 
 Put TLS (a reverse proxy) in front of it when traffic leaves the machine: the token travels in a header.
 
+## Changes in 2.2.0
+
+`compliance_audit` takes `priorAuthorization` `"exempt"` for a supplier its DME MAC has notified as exempt from prior authorization (42 CFR 414.234(c)(1)(ii)). For a date of service from June 1, 2026, the start of the first exemption cycle, the prior authorization requirement then passes as reported, not verified; every other requirement is still judged. `pa_required_check` and `order_readiness_checklist` return a `paExemption` note when an item requires prior authorization.
+
 ## Changes in 2.1.0
 
 `order_readiness_checklist` and `reimbursement_basic` return a `competitiveBidding` block for an item in the current round of the Medicare DMEPOS Competitive Bidding Program (Round 2028): its product category, the modifier that places it there, the bidding dates and whether contracts are in effect. From January 1, 2028 the single payment amount replaces the fee schedule amount for those items, and `reimbursement_basic` says so.

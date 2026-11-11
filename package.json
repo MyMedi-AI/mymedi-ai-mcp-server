@@ -1,6 +1,6 @@
 {
   "name": "@mymedi-ai/mcp-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "MCP server for DME billing and medical coding: HCPCS, ICD-10 and CPT lookup, DMEPOS fee schedules, Medicare prior-auth and F2F checks, denial codes, claim checks. 23 tools, 6 free. PHI-free.",
   "mcpName": "io.github.MyMedi-AI/mcp-server",
   "type": "module",
